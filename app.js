@@ -925,6 +925,7 @@ const FONT_OPTIONS = [
   { v:'Merriweather',        l:'Merriweather — ميريويذر' },
   { v:'Righteous',           l:'Righteous — رايتشس' },
   { v:'Roboto',              l:'Roboto — روبوتو' },
+  { v:'Roboto Black',        l:'Roboto Black — روبوتو أسود' },
   { v:'Arial',               l:'Arial — أريال' },
   { v:'Baloo 2',             l:'Baloo 2 — بالو' },
 ];
