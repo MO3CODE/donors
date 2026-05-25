@@ -53,6 +53,10 @@ const BANNER_Y_END   = 974;
 const BANNER_CENTER_Y = (710 + 974) / 2;  // ~842
 const DONOR_CENTER_Y  = 590;  // center of white donor zone (y=466-710)
 const IMG_W = 1754;
+const VERT_W = 1240;
+const VERT_H = 1653;
+let VERT_IMG_LIST = [];
+let VERT_ACTIVE_IDX = 0;
 const IMG_H = 1241;
 const LEFT_MARGIN  = 120;
 const RIGHT_MARGIN = 120;
@@ -67,6 +71,7 @@ function toggleAuto(lang, field) {
   slider.style.opacity = isAuto ? "0.4" : "1";
   if (lang === "ar") renderArabic();
   else if (lang === "en") renderEnglish();
+  else if (lang === "vt") renderVert();
   else renderOrgs();
 }
 
@@ -136,6 +141,83 @@ function drawCertText(ctx, donorText, projectText, lang) {
     const startY = donorY - ((totalLines - 1) * lineSpacing) / 2;
     donorLines.forEach((line, i) => ctx.fillText(line.trim(), donorX, startY + i * lineSpacing));
   }
+}
+
+
+function renderVert() {
+  const img = VERT_IMG_LIST.length > 0 ? VERT_IMG_LIST[VERT_ACTIVE_IDX] : null;
+  if (!img || !img.complete || !img.naturalWidth) {
+    document.getElementById('vt-status').textContent = '⚠ ارفع قالباً أولاً';
+    return;
+  }
+  const canvas = document.getElementById('canvas-vert');
+  const ctx = canvas.getContext('2d');
+  const donor   = document.getElementById('vt-donor').value   || 'اسم المتبرع';
+  const project = document.getElementById('vt-project').value || 'اسم المشروع';
+  ctx.clearRect(0, 0, VERT_W, VERT_H);
+  ctx.drawImage(img, 0, 0, VERT_W, VERT_H);
+  drawCertTextDirect(ctx, donor, project, 'vt', null);
+  document.getElementById('vt-upload-prompt').style.display = 'none';
+  const wrapper = document.getElementById('vt-canvas-wrapper');
+  if (wrapper) wrapper.style.display = 'block';
+  document.getElementById('vt-status').textContent = '✓ اللوحة جاهزة للتحميل';
+}
+
+function loadVertTemplate(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+  let loaded = 0;
+  files.forEach(function(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        VERT_IMG_LIST.push(img);
+        loaded++;
+        if (loaded === files.length) {
+          VERT_ACTIVE_IDX = VERT_IMG_LIST.length - 1;
+          updateVertTemplatesList();
+          renderVert();
+        }
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+  input.value = '';
+}
+
+function updateVertTemplatesList() {
+  const grid = document.getElementById('vt-templates-grid');
+  const listDiv = document.getElementById('vt-templates-list');
+  if (!grid || !VERT_IMG_LIST.length) { if (listDiv) listDiv.style.display = 'none'; return; }
+  listDiv.style.display = 'block';
+  grid.innerHTML = '';
+  VERT_IMG_LIST.forEach(function(img, idx) {
+    const thumb = document.createElement('div');
+    thumb.style.cssText = 'position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid ' + (idx === VERT_ACTIVE_IDX ? '#c8a45a' : 'rgba(200,164,90,0.3)') + ';width:55px;height:73px;flex-shrink:0;';
+    const cv = document.createElement('canvas');
+    cv.width = 55; cv.height = 73;
+    cv.getContext('2d').drawImage(img, 0, 0, 55, 73);
+    thumb.appendChild(cv);
+    const lbl = document.createElement('div');
+    lbl.textContent = (idx + 1);
+    lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#f0d98a;font-size:10px;text-align:center;padding:2px;font-family:Cairo,sans-serif;';
+    thumb.appendChild(lbl);
+    const del = document.createElement('div');
+    del.textContent = '✕';
+    del.style.cssText = 'position:absolute;top:0;right:0;background:rgba(180,50,50,0.85);color:#fff;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:0 0 0 4px;';
+    del.onclick = function(ev) {
+      ev.stopPropagation();
+      VERT_IMG_LIST.splice(idx, 1);
+      if (VERT_ACTIVE_IDX >= VERT_IMG_LIST.length) VERT_ACTIVE_IDX = Math.max(0, VERT_IMG_LIST.length - 1);
+      updateVertTemplatesList();
+      if (VERT_IMG_LIST.length > 0) renderVert();
+    };
+    thumb.appendChild(del);
+    thumb.onclick = function() { VERT_ACTIVE_IDX = idx; updateVertTemplatesList(); renderVert(); };
+    grid.appendChild(thumb);
+  });
 }
 
 function renderArabic() {
@@ -384,6 +466,7 @@ function loadEnglishTemplate(input) {
 function _getTabLabel(lang) {
   if (lang === 'orgs')  return _getOrgSlotName();
   if (lang === 'vacip') return 'Güzel Eser';
+  if (lang === 'vert')  return 'قياس 3:4';
   if (lang.startsWith('ct-')) {
     const ct = CUSTOM_TABS.find(t => t.id === lang.slice(3));
     return ct ? ct.name : 'جهة';
@@ -411,7 +494,7 @@ function getFileName(lang) {
     const el = document.getElementById('ct-' + lang.slice(3) + '-donor');
     donor = (el && el.value) || '';
   } else {
-    const idMap = { orgs: 'org-donor', vacip: 'vk-donor', arabic: 'ar-donor', english: 'en-donor' };
+    const idMap = { orgs: 'org-donor', vacip: 'vk-donor', vert: 'vt-donor', arabic: 'ar-donor', english: 'en-donor' };
     const el = document.getElementById(idMap[lang] || 'ar-donor');
     donor = el ? el.value : '';
   }
@@ -428,7 +511,7 @@ function getBatchFileName(lang, count) {
 
 function getStatusEl(lang) {
   if (lang.startsWith('ct-')) return document.getElementById('ct-' + lang.slice(3) + '-status');
-  const idMap = { arabic: "ar-status", english: "en-status", orgs: "org-status", vacip: "vk-status" };
+  const idMap = { arabic: "ar-status", english: "en-status", orgs: "org-status", vacip: "vk-status", vert: "vt-status" };
   return document.getElementById(idMap[lang] || "ar-status");
 }
 
@@ -460,6 +543,7 @@ function downloadCert(lang, format) {
   const canvasId = lang === 'english'    ? 'canvas-english' :
                    lang === 'orgs'       ? 'canvas-orgs-offscreen' :
                    lang === 'vacip'      ? 'canvas-vacip' :
+                 lang === 'vert'       ? 'canvas-vert' :
                    lang.startsWith('ct-')? 'canvas-' + lang :
                                            'canvas-arabic';
   const canvas = document.getElementById(canvasId);
@@ -671,7 +755,7 @@ function togglePreview(lang) {
 }
 
 // ===================== BATCH =====================
-const batchOpts = { ar: 'pdf', en: 'pdf', org: 'pdf', vk: 'pdf' };
+const batchOpts = { vt: 'pdf', ar: 'pdf', en: 'pdf', org: 'pdf', vk: 'pdf' };
 
 function selectBatchOpt(prefix, mode) {
   batchOpts[prefix] = mode;
@@ -681,18 +765,21 @@ function selectBatchOpt(prefix, mode) {
 
 function getBatchCanvas(lang) {
   const c = document.createElement('canvas');
-  c.width = IMG_W; c.height = IMG_H;
+  if (lang === 'vert') { c.width = VERT_W; c.height = VERT_H; }
+  else { c.width = IMG_W; c.height = IMG_H; }
   return c;
 }
 
 function drawOnCanvas(canvas, name, project, lang, img, settings, forceImg) {
   const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, IMG_W, IMG_H);
+  const cW = lang === 'vert' ? VERT_W : IMG_W;
+  const cH = lang === 'vert' ? VERT_H : IMG_H;
+  ctx.clearRect(0, 0, cW, cH);
   // forceImg = explicit override; otherwise vacip auto-picks by name language
   const actualImg = forceImg || ((lang === 'vacip') ? (_getVKImg(name) || img) : img);
   if (!actualImg || !actualImg.naturalWidth) return;
-  ctx.drawImage(actualImg, 0, 0, IMG_W, IMG_H);
-  const l = lang === 'arabic' ? 'ar' : lang === 'english' ? 'en' : lang === 'vacip' ? 'vk' : 'org';
+  ctx.drawImage(actualImg, 0, 0, cW, cH);
+  const l = lang === 'arabic' ? 'ar' : lang === 'english' ? 'en' : lang === 'vert' ? 'vt' : lang === 'vacip' ? 'vk' : 'org';
   drawCertTextDirect(ctx, name, project, l, settings);
 }
 
@@ -810,7 +897,7 @@ async function startBatch(lang) {
     return;
   }
 
-  const prefix = lang === 'arabic' ? 'ar' : lang === 'english' ? 'en' : lang === 'vacip' ? 'vk' : 'org';
+  const prefix = lang === 'arabic' ? 'ar' : lang === 'english' ? 'en' : lang === 'vacip' ? 'vk' : lang === 'vert' ? 'vt' : 'org';
   const namesRaw = document.getElementById(`${prefix}-batch-names`).value.trim();
   if (!namesRaw) { alert('أدخل أسماء أولاً'); return; }
 
@@ -945,6 +1032,7 @@ const FONT_OPTIONS = [
 ];
 
 function _populateFontSelects() {
+  // vt font selects populated same as others
   ['batch-edit-donor-font','batch-edit-proj-font'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel || sel.options.length > 1) return;
@@ -1302,6 +1390,7 @@ function switchTab(tab, btnEl) {
   if (btn) btn.classList.add("active");
   if (tab === "orgs")         renderOrgs();
   else if (tab === "vacip")   renderVacip();
+  else if (tab === "vert")    renderVert();
   else                        _ctRender(tab);
 }
 
@@ -1703,6 +1792,7 @@ function _initAllFontSelects() {
     ['en-donor-font'],['en-proj-font'],
     ['org-donor-font'],['org-proj-font'],
     ['vk-donor-font'],['vk-proj-font'],
+    ['vt-donor-font'],['vt-proj-font'],
   ];
   mainSelects.forEach(([id]) => {
     const sel = document.getElementById(id);
@@ -1728,7 +1818,7 @@ const STATE_FIELDS = [
   'ar-batch-names','en-batch-names','org-batch-names','vk-batch-names',
   // font selects
   'ar-donor-font','ar-proj-font','en-donor-font','en-proj-font',
-  'org-donor-font','org-proj-font','vk-donor-font','vk-proj-font',
+  'org-donor-font','org-proj-font','vk-donor-font','vk-proj-font','vt-donor-font','vt-proj-font',
   // size sliders
   'ar-donor-size','ar-proj-size','en-donor-size','en-proj-size',
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size',
