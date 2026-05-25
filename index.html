@@ -146,6 +146,11 @@
           <span class="color-val" id="org-donor-color-val">#1e2f5a</span>
           <button class="color-reset" onclick="document.getElementById('org-donor-color').value='#1e2f5a';renderOrgs()">↺</button>
         </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+        <div class="font-control">
+          <input type="range" id="org-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('org-donor-lineh-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-donor-lineh-val">0</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="org-donor-y" min="50" max="1200" value="590" oninput="document.getElementById('org-donor-y-val').textContent=this.value; renderOrgs()">
@@ -294,6 +299,11 @@
           <input type="color" id="vk-donor-color" value="#1e2f5a" oninput="renderVacip()">
           <span class="color-val" id="vk-donor-color-val">#1e2f5a</span>
           <button class="color-reset" onclick="document.getElementById('vk-donor-color').value='#1e2f5a';renderVacip()">↺</button>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+        <div class="font-control">
+          <input type="range" id="vk-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('vk-donor-lineh-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-donor-lineh-val">0</span>
         </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
@@ -496,6 +506,15 @@
               <span class="ep-range-val" id="batch-edit-donor-size-val">64</span>
             </div>
           </div>
+          <div class="ep-field">
+            <label class="ep-label">تباعد السطور <span style="font-size:11px;opacity:0.6;">(0 = تلقائي)</span></label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-donor-lineh" min="0" max="200" value="0"
+                oninput="_editVal('batch-edit-donor-lineh-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-donor-lineh-val">0</span>
+            </div>
+          </div>
+
           <div class="ep-field">
             <label class="ep-label">الارتفاع (Y)</label>
             <div class="ep-range-row">

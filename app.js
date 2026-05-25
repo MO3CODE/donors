@@ -709,6 +709,7 @@ function _resolveSettings(lang, s) {
     projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  1400),
     donorColor   : s?.donorColor   ?? ((g(`${lang}-donor-color`) || {}).value || '#1e2f5a'),
     projColor    : s?.projColor    ?? ((g(`${lang}-proj-color`)  || {}).value || '#ffffff'),
+    donorLineH   : s?.donorLineH   ?? gv(`${lang}-donor-lineh`, 0),
   };
 }
 
@@ -746,7 +747,8 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
   if (s.donorEnabled !== false) {
     const donorLines  = donorText.trim().split('\n').filter(Boolean);
     const totalLines  = donorLines.length || 1;
-    const lineSpacing = Math.min(90, 244 / (totalLines + 0.5));
+    const autoSpacing = Math.min(90, 244 / (totalLines + 0.5));
+    const lineSpacing = (s.donorLineH && s.donorLineH > 0) ? s.donorLineH : autoSpacing;
     const longestLine = donorLines.reduce((a, b) => a.length > b.length ? a : b, '');
     const donorSize   = _calcSize(ctx, longestLine, s.donorMaxW ?? USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
     ctx.font = `bold ${donorSize}px "${s.donorFont}", serif`;
@@ -981,6 +983,9 @@ function openCardEditor(index) {
   if (dEn) dEn.checked = s.donorEnabled !== false;
   if (pEn) pEn.checked = s.projEnabled  !== false;
 
+  // Line height
+  _setRange('batch-edit-donor-lineh', 'batch-edit-donor-lineh-val', s.donorLineH || 0);
+
   // Positions
   _setRange('batch-edit-donor-x', 'batch-edit-donor-x-val', s.donorX);
   _setRange('batch-edit-donor-y', 'batch-edit-donor-y-val', s.donorY);
@@ -1064,6 +1069,7 @@ function _readEditSettings() {
     projY        : parseInt(_editVal('batch-edit-proj-y').value),
     donorEnabled : donorEnabledEl ? donorEnabledEl.checked : true,
     projEnabled  : projEnabledEl  ? projEnabledEl.checked  : true,
+    donorLineH   : parseInt(_editVal('batch-edit-donor-lineh').value) || 0,
   };
 }
 
@@ -1296,7 +1302,7 @@ const CT_STATE_KEY = 'donor_cert_custom_tabs_v1';
 let CUSTOM_TABS = [];   // [{ id, name, templateDataUrl }]
 let _ctCounter  = 0;
 
-const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color'];
+const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
 const CT_CB_IDS      = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
 const CT_SLIDER_IDS  = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
 
@@ -1379,6 +1385,7 @@ function _ctRender(tabId) {
     projMaxW:     parseInt((_ctEl(tabId,'proj-maxw')   || {}).value) || 1400,
     donorColor:   (_ctEl(tabId,'donor-color') || {}).value || '#1e2f5a',
     projColor:    (_ctEl(tabId,'proj-color')  || {}).value || '#ffffff',
+    donorLineH:   parseInt((_ctEl(tabId,'donor-lineh') || {}).value) || 0,
   };
   drawCertTextDirect(ctx, donor, project, 'ct', settings);
 
@@ -1460,6 +1467,11 @@ function _buildCustomTabPanel(tab) {
         <div class="font-control">
           <input type="range" id="${p}donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}donor-maxw-val').textContent=this.value;_ctRender('${id}')">
           <span class="size-val" id="${p}donor-maxw-val">1400</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+        <div class="font-control">
+          <input type="range" id="${p}donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('${p}donor-lineh-val').textContent=this.value;_ctRender('${id}')">
+          <span class="size-val" id="${p}donor-lineh-val">0</span>
         </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
@@ -1713,6 +1725,7 @@ const STATE_FIELDS = [
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size',
   // max-width sliders
   'org-donor-maxw','org-proj-maxw','vk-donor-maxw','vk-proj-maxw',
+  'org-donor-lineh','vk-donor-lineh',
   // color pickers
   'org-donor-color','org-proj-color','vk-donor-color','vk-proj-color',
   // Y sliders
