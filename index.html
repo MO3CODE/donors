@@ -22,6 +22,7 @@
 <div class="tabs" id="tabs-bar">
   <button class="tab-btn active" id="tabBtn-orgs" onclick="switchTab('orgs',this)">🏢 الجهات</button>
   <button class="tab-btn" id="tabBtn-vacip" onclick="switchTab('vacip',this)">🐑 الأضاحي / Kurban</button>
+  <button class="tab-btn" id="tabBtn-vert" onclick="switchTab('vert',this)">📐 قياس 3:4</button>
   <button class="tab-btn tab-add-btn" id="tab-add-btn" onclick="openNewTabModal()" title="إضافة تبويب جديد">＋</button>
 </div>
 
@@ -235,6 +236,161 @@
       <canvas id="canvas-orgs-offscreen" width="1754" height="1241"></canvas>
     </div>
     <div class="status" id="org-status"></div>
+  </div>
+</div>
+
+
+<!-- VERT 3:4 TAB -->
+<div id="tab-vert" class="tab-content main">
+  <div class="panel">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(200,164,90,0.25);">
+      <h2 style="margin:0;padding:0;border:none;">بيانات اللوحة — قياس 3:4</h2>
+      <button class="hist-btn" onclick="openHistoryModal('vert')" title="سجل العمليات">🕐</button>
+    </div>
+
+    <!-- Template upload -->
+    <div class="field">
+      <div style="font-size:12px;color:#c8a45a;font-weight:700;margin-bottom:8px;">قوالب 3:4 العمودية</div>
+      <div class="upload-zone" onclick="document.getElementById('vt-template-upload').click()" style="margin-bottom:8px">
+        <input type="file" id="vt-template-upload" accept="image/*" multiple style="display:none" onchange="loadVertTemplate(this)">
+        <div>📎 رفع قوالب (يمكن رفع أكثر من قالب)</div>
+        <div style="margin-top:4px;font-size:11px">PNG/JPG — قياس 3:4 عمودي (1240×1653)</div>
+      </div>
+      <div id="vt-templates-list" style="display:none">
+        <div style="font-size:12px;color:#c8a45a;margin-bottom:6px;font-weight:700">📚 القوالب:</div>
+        <div id="vt-templates-grid" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-toggle-label">اسم المتبرع / المتبرعين<label class="toggle-switch"><input type="checkbox" id="vt-donor-enabled" checked onchange="renderVert()"><span class="toggle-slider"></span></label></label>
+      <textarea id="vt-donor" rows="3" placeholder="أدخل اسم المتبرع أو المتبرعين" oninput="renderVert()"></textarea>
+      <div class="hint">يمكن إدخال أسماء متعددة على سطر أو سطرين</div>
+    </div>
+
+    <div class="field">
+      <label class="field-toggle-label">اسم المشروع<label class="toggle-switch"><input type="checkbox" id="vt-proj-enabled" checked onchange="renderVert()"><span class="toggle-slider"></span></label></label>
+      <input type="text" id="vt-project" placeholder="مثال: مشروع إفطار الصائمين" oninput="renderVert()">
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">🔤 نوع الخط</div>
+        <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
+        <select id="vt-donor-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+        <select id="vt-proj-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">📐 اسم المتبرع — الحجم والموضع</div>
+        <label style="font-size:12px;color:#9aaccc">الحجم</label>
+        <div class="font-control">
+          <input type="range" id="vt-donor-size" min="20" max="300" value="64" oninput="document.getElementById('vt-donor-size-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-donor-size-val">64</span>
+        </div>
+        <label class="auto-toggle">
+          <input type="checkbox" id="vt-donor-auto" checked onchange="toggleAuto('vt','donor')"> حجم تلقائي
+        </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
+        <div class="font-control">
+          <input type="range" id="vt-donor-maxw" min="200" max="1200" value="1000" oninput="document.getElementById('vt-donor-maxw-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-donor-maxw-val">1000</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+        <div class="color-row">
+          <input type="color" id="vt-donor-color" value="#1e2f5a" oninput="renderVert()">
+          <span class="color-val" id="vt-donor-color-val">#1e2f5a</span>
+          <button class="color-reset" onclick="document.getElementById('vt-donor-color').value='#1e2f5a';renderVert()">↺</button>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+        <div class="font-control">
+          <input type="range" id="vt-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('vt-donor-lineh-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-donor-lineh-val">0</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+        <div class="font-control">
+          <input type="range" id="vt-donor-y" min="50" max="1600" value="800" oninput="document.getElementById('vt-donor-y-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-donor-y-val">800</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+        <div class="font-control">
+          <input type="range" id="vt-donor-x" min="0" max="1240" value="620" oninput="document.getElementById('vt-donor-x-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-donor-x-val">620</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">📋 اسم المشروع — الحجم والموضع</div>
+        <label style="font-size:12px;color:#9aaccc">الحجم</label>
+        <div class="font-control">
+          <input type="range" id="vt-proj-size" min="20" max="300" value="60" oninput="document.getElementById('vt-proj-size-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-proj-size-val">60</span>
+        </div>
+        <label class="auto-toggle">
+          <input type="checkbox" id="vt-proj-auto" checked onchange="toggleAuto('vt','proj')"> حجم تلقائي
+        </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
+        <div class="font-control">
+          <input type="range" id="vt-proj-maxw" min="200" max="1200" value="1000" oninput="document.getElementById('vt-proj-maxw-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-proj-maxw-val">1000</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+        <div class="color-row">
+          <input type="color" id="vt-proj-color" value="#ffffff" oninput="renderVert()">
+          <span class="color-val" id="vt-proj-color-val">#ffffff</span>
+          <button class="color-reset" onclick="document.getElementById('vt-proj-color').value='#ffffff';renderVert()">↺</button>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+        <div class="font-control">
+          <input type="range" id="vt-proj-y" min="50" max="1600" value="1000" oninput="document.getElementById('vt-proj-y-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-proj-y-val">1000</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+        <div class="font-control">
+          <input type="range" id="vt-proj-x" min="0" max="1240" value="620" oninput="document.getElementById('vt-proj-x-val').textContent=this.value; renderVert()">
+          <span class="size-val" id="vt-proj-x-val">620</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-generate" onclick="renderVert()">🔄 معاينة اللوحة</button>
+    <div class="export-btns">
+      <button class="btn-download visible" onclick="downloadCert('vert','png')">⬇ PNG</button>
+      <button class="btn-download visible" onclick="downloadCert('vert','pdf')">⬇ PDF</button>
+      <button class="btn-whatsapp" onclick="shareWhatsapp('vert')">📲 واتساب</button>
+    </div>
+
+    <div class="batch-section">
+      <div class="batch-title">⚡ إنتاج جماعي</div>
+      <textarea id="vt-batch-names" placeholder="أدخل اسماً في كل سطر:&#10;عائلة أحمد الرشيد&#10;محمد علي"></textarea>
+      <div class="batch-hint">كل سطر = لوحة منفصلة — القالب المختار يُطبّق على الكل</div>
+      <div class="batch-options">
+        <div class="batch-opt selected" id="vt-batch-opt-pdf" onclick="selectBatchOpt('vt','pdf')">📄 PDF واحد</div>
+        <div class="batch-opt" id="vt-batch-opt-imgs" onclick="selectBatchOpt('vt','imgs')">🖼 صور منفردة</div>
+      </div>
+      <button class="btn-batch" onclick="startBatch('vert')">🚀 ابدأ الإنتاج</button>
+      <div class="batch-progress" id="vt-batch-progress">
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="vt-batch-bar"></div></div>
+        <div class="progress-text" id="vt-batch-text">جارٍ المعالجة...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-area">
+    <div id="vt-upload-prompt" style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;background:rgba(255,255,255,0.04);border:2px dashed rgba(200,164,90,0.3);border-radius:12px;gap:12px;cursor:pointer" onclick="document.getElementById('vt-template-upload').click()">
+      <div style="font-size:40px">📐</div>
+      <div style="color:#c8a45a;font-size:15px;font-weight:700">ارفع قالب قياس 3:4</div>
+      <div style="color:#9aaccc;font-size:12px">اضغط هنا أو استخدم زر الرفع في الجانب</div>
+    </div>
+    <div class="canvas-wrapper" id="vt-canvas-wrapper" style="display:none">
+      <canvas id="canvas-vert" width="1240" height="1653"></canvas>
+    </div>
+    <div class="status" id="vt-status"></div>
   </div>
 </div>
 
