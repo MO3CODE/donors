@@ -545,6 +545,11 @@
             </div>
           </div>
 
+          <!-- ── القالب ── -->
+          <div class="ep-section">القالب</div>
+          <div id="batch-edit-tpl-btns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+          <div id="batch-edit-tpl-current" style="font-size:11px;color:#8aaad0;margin-top:2px;"></div>
+
           <!-- ── أزرار ── -->
           <button onclick="saveCardEdit()"
             style="background:linear-gradient(135deg,#c8a45a,#a8843a);border:none;color:#1a2a4a;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;padding:11px;border-radius:8px;cursor:pointer;margin-top:4px;">
@@ -572,6 +577,13 @@
   cursor: pointer;
   transition: border-color 0.2s, transform 0.15s;
 }
+.batch-tpl-btn {
+  font-family:'Cairo',sans-serif;font-size:12px;padding:6px 10px;
+  border-radius:7px;cursor:pointer;border:1px solid rgba(200,164,90,0.35);
+  background:rgba(255,255,255,0.06);color:#d0d8ee;transition:all 0.15s;
+}
+.batch-tpl-btn:hover { background:rgba(200,164,90,0.15); }
+.batch-tpl-btn.active { background:rgba(200,164,90,0.3);border-color:#c8a45a;color:#f0d98a;font-weight:700; }
 .preview-card:hover { border-color: rgba(200,164,90,0.7); transform: translateY(-2px); }
 .preview-card > img { width:100%; display:block; }
 .preview-card-footer {

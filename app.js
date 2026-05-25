@@ -822,10 +822,14 @@ async function startBatch(lang) {
   openBatchPreviewGrid();
 }
 
+function _entryImg(entry) {
+  return (entry.templateOverride && entry.templateOverride.img) || _pendingBatch.img;
+}
+
 function _renderThumb(entry) {
-  const { lang, img } = _pendingBatch;
+  const { lang } = _pendingBatch;
   const c = getBatchCanvas(lang);
-  drawOnCanvas(c, entry.name, entry.project, lang, img, entry.settings);
+  drawOnCanvas(c, entry.name, entry.project, lang, _entryImg(entry), entry.settings);
   const thumb = document.createElement('canvas');
   thumb.width = THUMB_W; thumb.height = THUMB_H;
   thumb.getContext('2d').drawImage(c, 0, 0, THUMB_W, THUMB_H);
@@ -987,8 +991,46 @@ function openCardEditor(index) {
   _editVal('batch-edit-prev').disabled = index === 0;
   _editVal('batch-edit-next').disabled = index === entries.length - 1;
 
+  // Template override buttons
+  _buildTplButtons(entry);
+
   // wait one frame so flex layout is calculated before reading clientWidth
   requestAnimationFrame(() => refreshEditPreview());
+}
+
+function _buildTplButtons(entry) {
+  const wrap = document.getElementById('batch-edit-tpl-btns');
+  const cur  = document.getElementById('batch-edit-tpl-current');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  const TEMPLATES = [
+    { key: 'default',  label: '↩ افتراضي',         img: null },
+    { key: 'stk',      label: 'STK',                img: ORG_IMGS.stk },
+    { key: 'ummetin',  label: 'ÜMMETİN ABİSİ',     img: ORG_IMGS.ummetin },
+    { key: 'kayra',    label: 'KAYRA',               img: ORG_IMGS.kayra },
+    { key: 'vk-ar',   label: '🇾🇪 القربان — عربي', img: VK_AR_IMG },
+    { key: 'vk-tr',   label: '🇹🇷 القربان — تركي', img: VK_TR_IMG },
+  ];
+
+  const activeKey = entry.templateOverride ? entry.templateOverride.key : 'default';
+
+  TEMPLATES.forEach(tpl => {
+    if (tpl.key !== 'default' && !tpl.img) return; // skip if image not loaded
+    const btn = document.createElement('button');
+    btn.className = 'batch-tpl-btn' + (tpl.key === activeKey ? ' active' : '');
+    btn.textContent = tpl.label;
+    btn.onclick = () => {
+      entry.templateOverride = tpl.key === 'default' ? null : { key: tpl.key, img: tpl.img, label: tpl.label };
+      _buildTplButtons(entry);
+      refreshEditPreview();
+    };
+    wrap.appendChild(btn);
+  });
+
+  cur.textContent = activeKey === 'default'
+    ? 'القالب الافتراضي للدفعة'
+    : `القالب: ${entry.templateOverride.label}`;
 }
 
 function _setSelect(id, val) {
@@ -1027,8 +1069,9 @@ function _readEditSettings() {
 function refreshEditPreview() {
   const nameVal = _editVal('batch-edit-name').value;
   const projVal = _editVal('batch-edit-project').value;
-  const { lang, img } = _pendingBatch;
+  const { lang } = _pendingBatch;
   const settings = _readEditSettings();
+  const entry = _pendingBatch.entries[_editingIndex];
 
   _editVal('batch-edit-donor-size').disabled = settings.donorAuto;
   _editVal('batch-edit-proj-size').disabled  = settings.projAuto;
@@ -1036,7 +1079,7 @@ function refreshEditPreview() {
   _editVal('batch-edit-proj-size').style.opacity  = settings.projAuto  ? '0.4' : '1';
 
   const c = getBatchCanvas(lang);
-  drawOnCanvas(c, nameVal, projVal, lang, img, settings);
+  drawOnCanvas(c, nameVal, projVal, lang, _entryImg(entry), settings);
 
   const wrap    = document.getElementById('batch-edit-canvas-wrap');
   const preview = document.getElementById('batch-edit-canvas-preview');
@@ -1093,7 +1136,7 @@ function closeBatchPreview() {
 
 async function confirmBatchDownload() {
   if (!_pendingBatch) return;
-  const { lang, prefix, entries, img } = _pendingBatch;
+  const { lang, prefix, entries } = _pendingBatch;
   // Save full batch (with per-card edits) to history
   try { histSaveBatch(lang, entries); } catch(e) {}
   closeBatchPreview();
@@ -1114,7 +1157,7 @@ async function confirmBatchDownload() {
       await new Promise(r => setTimeout(r, 10));
 
       const c = getBatchCanvas(lang);
-      drawOnCanvas(c, entries[i].name, entries[i].project, lang, img, entries[i].settings);
+      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _entryImg(entries[i]), entries[i].settings);
       jpegDataList.push({ data: canvasToJpegBase64(c), w: IMG_W, h: IMG_H });
     }
 
@@ -1141,7 +1184,7 @@ async function confirmBatchDownload() {
       await new Promise(r => setTimeout(r, 50));
 
       const c = getBatchCanvas(lang);
-      drawOnCanvas(c, entries[i].name, entries[i].project, lang, img, entries[i].settings);
+      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _entryImg(entries[i]), entries[i].settings);
 
       await new Promise(resolve => {
         c.toBlob(blob => {
