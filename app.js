@@ -384,14 +384,49 @@ function loadEnglishTemplate(input) {
 }
 
 
+// Returns the org/tab name label for use in filenames
+function _getTabLabel(lang) {
+  if (lang === 'orgs')  return _getOrgSlotName();
+  if (lang === 'vacip') return 'الأضاحي';
+  if (lang.startsWith('ct-')) {
+    const ct = CUSTOM_TABS.find(t => t.id === lang.slice(3));
+    return ct ? ct.name : 'جهة';
+  }
+  return '';
+}
+
+// Returns the active org slot display name
+function _getOrgSlotName() {
+  if (ORG_ACTIVE_SLOT === 'stk')     return 'STK';
+  if (ORG_ACTIVE_SLOT === 'ummetin') return 'ÜMMETİN';
+  // custom slot: try to read from the uploaded file badge or fallback
+  return 'الجهة';
+}
+
+function _sanitize(str) {
+  return (str || '').trim().replace(/[\\/:"*?<>|]+/g, '').replace(/\s+/g, '_').substring(0, 60);
+}
+
+// Single certificate filename: "اسم المتبرع - الجهة"
 function getFileName(lang) {
+  let donor = '';
   if (lang.startsWith('ct-')) {
     const el = document.getElementById('ct-' + lang.slice(3) + '-donor');
-    return ((el && el.value) || 'لوحة').trim().replace(/\s+/g,'_').substring(0,50);
+    donor = (el && el.value) || '';
+  } else {
+    const idMap = { orgs: 'org-donor', vacip: 'vk-donor', arabic: 'ar-donor', english: 'en-donor' };
+    const el = document.getElementById(idMap[lang] || 'ar-donor');
+    donor = el ? el.value : '';
   }
-  const idMap = { arabic: "ar-donor", english: "en-donor", orgs: "org-donor", vacip: "vk-donor" };
-  const donorVal = document.getElementById(idMap[lang] || "ar-donor").value;
-  return (donorVal || "لوحة").trim().replace(/\s+/g, "_").substring(0, 50);
+  const tabLabel = _getTabLabel(lang);
+  const base = donor ? _sanitize(donor) + (tabLabel ? ' - ' + _sanitize(tabLabel) : '') : 'لوحة';
+  return base || 'لوحة';
+}
+
+// Batch filename: "اسم الجهة-عدد التصاميم"
+function getBatchFileName(lang, count) {
+  const tabLabel = _getTabLabel(lang) || 'إنتاج';
+  return _sanitize(tabLabel) + '-' + count;
 }
 
 function getStatusEl(lang) {
@@ -1091,12 +1126,11 @@ async function confirmBatchDownload() {
     barEl.style.width = '100%';
     textEl.textContent = `✓ تم — ${entries.length} لوحة في PDF واحد`;
 
-    const firstProject = entries[0]?.project || 'batch';
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${firstProject.replace(/\s+/g,'_')}_batch.pdf`;
+    a.download = `${getBatchFileName(lang, entries.length)}.pdf`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 5000);
 
@@ -1114,7 +1148,7 @@ async function confirmBatchDownload() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${entries[i].name.replace(/\s+/g,'_')}.png`;
+          a.download = `${_sanitize(entries[i].name)} - ${_sanitize(_getTabLabel(lang))}.png`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(() => { URL.revokeObjectURL(url); resolve(); }, 300);
         }, 'image/png');
