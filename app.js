@@ -401,6 +401,30 @@ function getStatusEl(lang) {
 }
 
 function downloadCert(lang, format) {
+  // Save to history before downloading
+  try {
+    const tabId  = lang.startsWith('ct-') ? lang.slice(3) : lang;
+    const isOrgs = lang === 'orgs', isVK = lang === 'vacip', isCT = lang.startsWith('ct-');
+    const prefix = isOrgs ? 'org' : isVK ? 'vk' : null;
+    const pid    = f => isCT ? 'ct-' + tabId + '-' + f : prefix + '-' + f;
+    const gv     = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const gb     = id => { const el = document.getElementById(id); return el ? el.checked : true; };
+    const donor  = gv(pid('donor'));
+    const project = gv(pid('project'));
+    if (donor) {
+      const settings = {
+        donorFont: gv(pid('donor-font')), projFont: gv(pid('proj-font')),
+        donorSize: parseInt(gv(pid('donor-size'))), projSize: parseInt(gv(pid('proj-size'))),
+        donorY: parseInt(gv(pid('donor-y'))), projY: parseInt(gv(pid('proj-y'))),
+        donorX: parseInt(gv(pid('donor-x'))), projX: parseInt(gv(pid('proj-x'))),
+        donorMaxW: parseInt(gv(pid('donor-maxw'))||1400), projMaxW: parseInt(gv(pid('proj-maxw'))||1400),
+        donorAuto: gb(pid('donor-auto')), projAuto: gb(pid('proj-auto')),
+        donorEnabled: gb(pid('donor-enabled')), projEnabled: gb(pid('proj-enabled')),
+      };
+      histSaveSingle(lang, donor, project, settings);
+    }
+  } catch(e) {}
+
   const canvasId = lang === 'english'    ? 'canvas-english' :
                    lang === 'orgs'       ? 'canvas-orgs-offscreen' :
                    lang === 'vacip'      ? 'canvas-vacip' :
@@ -1035,6 +1059,8 @@ function closeBatchPreview() {
 async function confirmBatchDownload() {
   if (!_pendingBatch) return;
   const { lang, prefix, entries, img } = _pendingBatch;
+  // Save full batch (with per-card edits) to history
+  try { histSaveBatch(lang, entries); } catch(e) {}
   closeBatchPreview();
 
   const mode = batchOpts[prefix];
@@ -1310,7 +1336,10 @@ function _buildCustomTabPanel(tab) {
   div.className = 'tab-content main';
   div.innerHTML = `
   <div class="panel">
-    <h2>📋 ${tab.name}</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(200,164,90,0.25);">
+      <h2 style="margin:0;padding:0;border:none;">📋 ${tab.name}</h2>
+      <button class="hist-btn" onclick="openHistoryModal('${id}')" title="سجل العمليات">🕐</button>
+    </div>
 
     <div class="field">
       <label class="field-toggle-label">اسم المتبرع / المتبرعين<label class="toggle-switch"><input type="checkbox" id="${p}donor-enabled" checked onchange="_ctRender('${id}')"><span class="toggle-slider"></span></label></label>
@@ -1700,5 +1729,226 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('click', function(e) {
   const modal = document.getElementById('batch-preview-modal');
   if (e.target === modal) closeBatchPreview();
+});
+
+// ── HISTORY SYSTEM ────────────────────────────────────────────────────────────
+
+const HIST_KEY      = 'donor_cert_history_v2';
+const HIST_MAX      = 50;
+let   _hist         = [];
+
+function _histLoad() {
+  try { _hist = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch(e) { _hist = []; }
+}
+
+function _histSave() {
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(_hist.slice(0, HIST_MAX))); } catch(e) {}
+}
+
+function _histTabLabel(tabId) {
+  if (tabId === 'orgs')  return '🏢 الجهات';
+  if (tabId === 'vacip') return '🐑 الأضاحي';
+  const ct = CUSTOM_TABS.find(t => t.id === tabId);
+  return ct ? '📋 ' + ct.name : tabId;
+}
+
+// Save a single-certificate history entry
+function histSaveSingle(lang, donor, project, settings) {
+  const tabId = lang.startsWith('ct-') ? lang.slice(3) : lang;
+  _hist.unshift({
+    id:        Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    type:      'single',
+    tabId,
+    tabLabel:  _histTabLabel(tabId),
+    ts:        Date.now(),
+    donor,
+    project,
+    settings:  JSON.parse(JSON.stringify(settings || {})),
+  });
+  _histSave();
+}
+
+// Save a batch history entry (full entries array with per-card settings)
+function histSaveBatch(lang, entries) {
+  const tabId = lang.startsWith('ct-') ? lang.slice(3) : lang;
+  _hist.unshift({
+    id:        Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    type:      'batch',
+    tabId,
+    tabLabel:  _histTabLabel(tabId),
+    ts:        Date.now(),
+    count:     entries.length,
+    entries:   JSON.parse(JSON.stringify(entries)),
+    lang,
+  });
+  _histSave();
+}
+
+// Restore a single entry into the tab's form fields and re-render
+function histRestoreSingle(entry) {
+  closeHistoryModal();
+  const tabId  = entry.tabId;
+  const lang   = tabId;
+  const isOrgs = tabId === 'orgs';
+  const isVK   = tabId === 'vacip';
+  const isCT   = !isOrgs && !isVK;
+
+  // Switch to the correct tab
+  const btn = document.getElementById('tabBtn-' + tabId);
+  if (btn) switchTab(tabId, btn);
+
+  const prefix = isOrgs ? 'org' : isVK ? 'vk' : 'ct-' + tabId + '-';
+  const pid    = id => isCT ? 'ct-' + tabId + '-' + id : prefix + '-' + id;
+
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; } };
+  const setCB  = (id, val) => { const el = document.getElementById(id); if (el) { el.checked = val; } };
+  const setDisp = (id, val) => { const el = document.getElementById(id + '-val'); if (el) el.textContent = val; };
+
+  setVal(pid('donor'),      entry.donor);
+  setVal(pid('project'),    entry.project);
+
+  const s = entry.settings || {};
+  if (s.donorFont)    setVal(pid('donor-font'),    s.donorFont);
+  if (s.projFont)     setVal(pid('proj-font'),     s.projFont);
+  if (s.donorSize)  { setVal(pid('donor-size'),    s.donorSize);  setDisp(pid('donor-size'),  s.donorSize); }
+  if (s.projSize)   { setVal(pid('proj-size'),     s.projSize);   setDisp(pid('proj-size'),   s.projSize); }
+  if (s.donorY)     { setVal(pid('donor-y'),       s.donorY);     setDisp(pid('donor-y'),     s.donorY); }
+  if (s.projY)      { setVal(pid('proj-y'),        s.projY);      setDisp(pid('proj-y'),      s.projY); }
+  if (s.donorX)     { setVal(pid('donor-x'),       s.donorX);     setDisp(pid('donor-x'),     s.donorX); }
+  if (s.projX)      { setVal(pid('proj-x'),        s.projX);      setDisp(pid('proj-x'),      s.projX); }
+  if (s.donorMaxW)  { setVal(pid('donor-maxw'),    s.donorMaxW);  setDisp(pid('donor-maxw'),  s.donorMaxW); }
+  if (s.projMaxW)   { setVal(pid('proj-maxw'),     s.projMaxW);   setDisp(pid('proj-maxw'),   s.projMaxW); }
+  if (s.donorAuto   !== undefined) setCB(pid('donor-auto'),    s.donorAuto);
+  if (s.projAuto    !== undefined) setCB(pid('proj-auto'),     s.projAuto);
+  if (s.donorEnabled !== undefined) setCB(pid('donor-enabled'), s.donorEnabled);
+  if (s.projEnabled  !== undefined) setCB(pid('proj-enabled'),  s.projEnabled);
+
+  // Re-render
+  setTimeout(() => {
+    if (isOrgs)  renderOrgs();
+    else if (isVK) renderVacip();
+    else           _ctRender(tabId);
+  }, 80);
+}
+
+// Restore a batch entry — reloads _pendingBatch and opens preview
+function histRestoreBatch(entry) {
+  closeHistoryModal();
+  const tabId = entry.tabId;
+  const btn   = document.getElementById('tabBtn-' + tabId);
+  if (btn) switchTab(tabId, btn);
+
+  // Determine img
+  let img = null;
+  if (tabId === 'orgs')  img = ORG_IMG;
+  else if (tabId === 'vacip') img = VK_TR_IMG || VK_AR_IMG;
+  else { const ct = CUSTOM_TABS.find(t => t.id === tabId); img = ct ? ct.img : null; }
+
+  if (!img || !img.naturalWidth) {
+    alert('القالب غير محمّل، يرجى رفع القالب أولاً ثم استعادة السجل'); return;
+  }
+
+  const prefix = tabId === 'orgs' ? 'org' : tabId === 'vacip' ? 'vk' : 'ct-' + tabId;
+  _pendingBatch = { lang: entry.lang || tabId, prefix, entries: JSON.parse(JSON.stringify(entry.entries)), img };
+  openBatchPreviewGrid();
+}
+
+// Format timestamp
+function _histFmtTime(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Open history modal
+function openHistoryModal(filterTabId) {
+  _histLoad();
+  const modal = document.getElementById('history-modal');
+  modal.style.display = 'flex';
+
+  const list = document.getElementById('history-list');
+  const filtered = filterTabId ? _hist.filter(e => e.tabId === filterTabId) : _hist;
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div style="text-align:center;color:#556688;padding:40px 20px;font-size:14px;">لا يوجد سجل بعد<br><span style="font-size:11px;">يُحفظ تلقائياً عند التحميل</span></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(e => {
+    const icon     = e.type === 'batch' ? '⚡' : '👤';
+    const title    = e.type === 'batch'
+      ? `${e.count} اسم — إنتاج جماعي`
+      : (e.donor || '—');
+    const subtitle = e.type === 'single' && e.project ? `<div style="font-size:11px;color:#7a8fa8;margin-top:2px;">${e.project}</div>` : '';
+    const tabBadge = filterTabId ? '' : `<span style="font-size:10px;background:rgba(200,164,90,0.15);color:#c8a45a;padding:2px 7px;border-radius:10px;margin-bottom:4px;display:inline-block;">${e.tabLabel}</span><br>`;
+    return `
+    <div class="hist-entry" onclick="histRestore('${e.id}')">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <div style="font-size:22px;flex-shrink:0;margin-top:2px;">${icon}</div>
+        <div style="flex:1;min-width:0;">
+          ${tabBadge}
+          <div style="font-size:13px;color:#e8e8e8;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${title}</div>
+          ${subtitle}
+          <div style="font-size:11px;color:#556688;margin-top:4px;">${_histFmtTime(e.ts)}</div>
+        </div>
+        <button onclick="event.stopPropagation();histDelete('${e.id}')" style="background:none;border:none;color:#556688;cursor:pointer;font-size:14px;padding:2px 4px;flex-shrink:0;" title="حذف">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Store current filter
+  modal.dataset.filter = filterTabId || '';
+}
+
+function histRestore(id) {
+  const entry = _hist.find(e => e.id === id);
+  if (!entry) return;
+  if (entry.type === 'single') histRestoreSingle(entry);
+  else histRestoreBatch(entry);
+}
+
+function histDelete(id) {
+  _hist = _hist.filter(e => e.id !== id);
+  _histSave();
+  const modal = document.getElementById('history-modal');
+  openHistoryModal(modal.dataset.filter || undefined);
+}
+
+function closeHistoryModal() {
+  document.getElementById('history-modal').style.display = 'none';
+}
+
+// Build history modal HTML (called once on page load)
+function _buildHistoryModal() {
+  const div = document.createElement('div');
+  div.id = 'history-modal';
+  div.style.cssText = 'display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.75);align-items:flex-start;justify-content:flex-end;';
+  div.innerHTML = `
+  <div style="background:#1a2a4a;width:360px;max-width:100vw;height:100vh;overflow-y:auto;border-left:1px solid rgba(200,164,90,0.35);display:flex;flex-direction:column;">
+    <div style="background:linear-gradient(90deg,#29407d,#1e2f5a);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #c8a45a;flex-shrink:0;">
+      <div style="font-family:'Amiri',serif;font-size:17px;color:#f0d98a;">🕐 سجل العمليات</div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="histClearAll()" style="background:rgba(220,60,60,0.15);border:1px solid rgba(220,60,60,0.3);color:#e07070;font-family:'Cairo',sans-serif;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;">مسح الكل</button>
+        <button onclick="closeHistoryModal()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e8e8e8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+      </div>
+    </div>
+    <div id="history-list" style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;"></div>
+  </div>`;
+  div.addEventListener('click', e => { if (e.target === div) closeHistoryModal(); });
+  document.body.appendChild(div);
+}
+
+function histClearAll() {
+  const modal = document.getElementById('history-modal');
+  const filter = modal.dataset.filter;
+  if (filter) _hist = _hist.filter(e => e.tabId !== filter);
+  else _hist = [];
+  _histSave();
+  openHistoryModal(filter || undefined);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  _histLoad();
+  _buildHistoryModal();
 });
 

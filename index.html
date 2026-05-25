@@ -40,7 +40,10 @@
 <!-- ORGS TAB -->
 <div id="tab-orgs" class="tab-content active main">
   <div class="panel">
-    <h2>بيانات اللوحة — الجهات</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(200,164,90,0.25);">
+      <h2 style="margin:0;padding:0;border:none;">بيانات اللوحة — الجهات</h2>
+      <button class="hist-btn" onclick="openHistoryModal('orgs')" title="سجل العمليات">🕐</button>
+    </div>
 
     <!-- Org slot selector -->
     <div class="field">
@@ -209,7 +212,10 @@
 <!-- VACIP / ADAHI TAB -->
 <div id="tab-vacip" class="tab-content main">
   <div class="panel">
-    <h2>🐑 الأضاحي / Kurban</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(200,164,90,0.25);">
+      <h2 style="margin:0;padding:0;border:none;">🐑 الأضاحي / Kurban</h2>
+      <button class="hist-btn" onclick="openHistoryModal('vacip')" title="سجل العمليات">🕐</button>
+    </div>
 
     <div class="field">
       <label class="field-toggle-label">اسم المتبرع / المتبرعين<label class="toggle-switch"><input type="checkbox" id="vk-donor-enabled" checked onchange="renderVacip()"><span class="toggle-slider"></span></label></label>

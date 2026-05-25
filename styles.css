@@ -468,6 +468,32 @@
     margin-bottom: 10px;
   }
 
+  /* History button */
+  .hist-btn {
+    background: rgba(200,164,90,0.12);
+    border: 1px solid rgba(200,164,90,0.3);
+    color: #c8a45a;
+    font-size: 16px;
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .hist-btn:hover { background: rgba(200,164,90,0.25); color: #f0d98a; }
+
+  /* History entry card */
+  .hist-entry {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(200,164,90,0.15);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .hist-entry:hover { border-color: #c8a45a; background: rgba(200,164,90,0.08); }
+
   /* Add-tab button */
   .tab-add-btn {
     padding: 8px 16px !important;
