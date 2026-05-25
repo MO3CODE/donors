@@ -634,6 +634,7 @@ function drawOnCanvas(canvas, name, project, lang, img, settings) {
 // s = optional per-entry settings override; null = read from DOM
 function _resolveSettings(lang, s) {
   const g = (id) => document.getElementById(id);
+  const gv = (id, def) => { const el = g(id); return el ? parseInt(el.value) : def; };
   const enabledEl = (id) => { const el = g(id); return el ? el.checked : true; };
   return {
     donorFont    : s?.donorFont    ?? getFont(lang, 'donor'),
@@ -648,6 +649,8 @@ function _resolveSettings(lang, s) {
     projAuto     : s?.projAuto     ?? g(`${lang}-proj-auto`).checked,
     donorEnabled : s?.donorEnabled ?? enabledEl(`${lang}-donor-enabled`),
     projEnabled  : s?.projEnabled  ?? enabledEl(`${lang}-proj-enabled`),
+    donorMaxW    : s?.donorMaxW    ?? gv(`${lang}-donor-maxw`, 1400),
+    projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  1400),
   };
 }
 
@@ -673,7 +676,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
   if (s.projEnabled !== false) {
     const projLines = projectText.trim().split('\n').filter(Boolean);
     const projText2 = projLines.join(' | ');
-    const projSize  = _calcSize(ctx, projText2, USABLE_W * 0.85, 72, 28, s.projFont, s.projAuto, s.projSize);
+    const projSize  = _calcSize(ctx, projText2, s.projMaxW ?? USABLE_W * 0.85, 72, 28, s.projFont, s.projAuto, s.projSize);
     ctx.font = `bold ${projSize}px "${s.projFont}", serif`;
     ctx.fillStyle = '#FFFFFF';
     ctx.direction = dir;
@@ -687,7 +690,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     const totalLines  = donorLines.length || 1;
     const lineSpacing = Math.min(90, 244 / (totalLines + 0.5));
     const longestLine = donorLines.reduce((a, b) => a.length > b.length ? a : b, '');
-    const donorSize   = _calcSize(ctx, longestLine, USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
+    const donorSize   = _calcSize(ctx, longestLine, s.donorMaxW ?? USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
     ctx.font = `bold ${donorSize}px "${s.donorFont}", serif`;
     ctx.fillStyle = '#1e2f5a';
     ctx.direction = dir;
@@ -1189,7 +1192,7 @@ const CT_STATE_KEY = 'donor_cert_custom_tabs_v1';
 let CUSTOM_TABS = [];   // [{ id, name, templateDataUrl }]
 let _ctCounter  = 0;
 
-const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
+const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw'];
 const CT_CB_IDS      = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
 const CT_SLIDER_IDS  = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
 
@@ -1268,6 +1271,8 @@ function _ctRender(tabId) {
     projAuto:     (_ctEl(tabId,'proj-auto')    || {}).checked !== false,
     donorEnabled: (_ctEl(tabId,'donor-enabled')|| {}).checked !== false,
     projEnabled:  (_ctEl(tabId,'proj-enabled') || {}).checked !== false,
+    donorMaxW:    parseInt((_ctEl(tabId,'donor-maxw') || {}).value) || 1400,
+    projMaxW:     parseInt((_ctEl(tabId,'proj-maxw')  || {}).value) || 1400,
   };
   drawCertTextDirect(ctx, donor, project, 'ct', settings);
 
@@ -1336,6 +1341,11 @@ function _buildCustomTabPanel(tab) {
           <span class="size-val" id="${p}donor-size-val">64</span>
         </div>
         <label class="auto-toggle"><input type="checkbox" id="${p}donor-auto" checked onchange="toggleAuto('ct-${id}','donor')"> حجم تلقائي</label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
+        <div class="font-control">
+          <input type="range" id="${p}donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}donor-maxw-val').textContent=this.value;_ctRender('${id}')">
+          <span class="size-val" id="${p}donor-maxw-val">1400</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="${p}donor-y" min="50" max="1200" value="590" oninput="document.getElementById('${p}donor-y-val').textContent=this.value;_ctRender('${id}')">
@@ -1358,6 +1368,11 @@ function _buildCustomTabPanel(tab) {
           <span class="size-val" id="${p}proj-size-val">72</span>
         </div>
         <label class="auto-toggle"><input type="checkbox" id="${p}proj-auto" checked onchange="toggleAuto('ct-${id}','proj')"> حجم تلقائي</label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
+        <div class="font-control">
+          <input type="range" id="${p}proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}proj-maxw-val').textContent=this.value;_ctRender('${id}')">
+          <span class="size-val" id="${p}proj-maxw-val">1400</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="${p}proj-y" min="50" max="1200" value="842" oninput="document.getElementById('${p}proj-y-val').textContent=this.value;_ctRender('${id}')">
@@ -1575,6 +1590,8 @@ const STATE_FIELDS = [
   // size sliders
   'ar-donor-size','ar-proj-size','en-donor-size','en-proj-size',
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size',
+  // max-width sliders
+  'org-donor-maxw','org-proj-maxw','vk-donor-maxw','vk-proj-maxw',
   // Y sliders
   'ar-donor-y','ar-proj-y','en-donor-y','en-proj-y',
   'org-donor-y','org-proj-y','vk-donor-y','vk-proj-y',

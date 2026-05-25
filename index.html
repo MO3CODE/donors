@@ -120,6 +120,11 @@
         <label class="auto-toggle">
           <input type="checkbox" id="org-donor-auto" checked onchange="toggleAuto('org','donor')"> حجم تلقائي
         </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
+        <div class="font-control">
+          <input type="range" id="org-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-donor-maxw-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-donor-maxw-val">1400</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="org-donor-y" min="50" max="1200" value="590" oninput="document.getElementById('org-donor-y-val').textContent=this.value; renderOrgs()">
@@ -144,6 +149,11 @@
         <label class="auto-toggle">
           <input type="checkbox" id="org-proj-auto" checked onchange="toggleAuto('org','proj')"> حجم تلقائي
         </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
+        <div class="font-control">
+          <input type="range" id="org-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-proj-maxw-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-proj-maxw-val">1400</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="org-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('org-proj-y-val').textContent=this.value; renderOrgs()">
@@ -244,6 +254,11 @@
         <label class="auto-toggle">
           <input type="checkbox" id="vk-donor-auto" checked onchange="toggleAuto('vk','donor')"> حجم تلقائي
         </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
+        <div class="font-control">
+          <input type="range" id="vk-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-donor-maxw-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-donor-maxw-val">1400</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="vk-donor-y" min="50" max="1200" value="620" oninput="document.getElementById('vk-donor-y-val').textContent=this.value; renderVacip()">
@@ -268,6 +283,11 @@
         <label class="auto-toggle">
           <input type="checkbox" id="vk-proj-auto" checked onchange="toggleAuto('vk','proj')"> حجم تلقائي
         </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
+        <div class="font-control">
+          <input type="range" id="vk-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-proj-maxw-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-proj-maxw-val">1400</span>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="vk-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('vk-proj-y-val').textContent=this.value; renderVacip()">
