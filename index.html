@@ -120,8 +120,16 @@
         <div class="font-section-title">🔤 نوع الخط</div>
         <label style="font-size:12px;color:#9aaccc">خط اسم الجهة</label>
         <select id="org-donor-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">اتجاه اسم الجهة</label>
+        <select id="org-donor-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="org-proj-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+        <select id="org-proj-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
       </div>
     </div>
 
@@ -210,7 +218,11 @@
     <div class="batch-section">
       <div class="batch-title">⚡ إنتاج جماعي</div>
       <textarea id="org-batch-names" placeholder="أدخل اسماً في كل سطر:&#10;جمعية الهلال الأحمر&#10;منظمة أطباء بلا حدود"></textarea>
-      <div class="batch-hint">كل سطر = لوحة منفصلة — القالب المختار يُطبّق على الكل</div>
+      <div class="batch-group-row">
+        <label for="org-batch-group-size">عدد الأسماء في الصفحة الواحدة</label>
+        <input type="number" id="org-batch-group-size" min="1" max="100" value="1">
+      </div>
+      <div class="batch-hint">كل اسم في سطر، وسيتم جمع العدد المحدد تحت بعض في كل لوحة.</div>
       <div class="batch-options">
         <div class="batch-opt selected" id="org-batch-opt-pdf" onclick="selectBatchOpt('org','pdf')">📄 PDF واحد</div>
         <div class="batch-opt" id="org-batch-opt-imgs" onclick="selectBatchOpt('org','imgs')">🖼 صور منفردة</div>
@@ -278,8 +290,16 @@
         <div class="font-section-title">🔤 نوع الخط</div>
         <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
         <select id="vt-donor-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
+        <select id="vt-donor-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="vt-proj-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+        <select id="vt-proj-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
       </div>
     </div>
 
@@ -368,7 +388,11 @@
     <div class="batch-section">
       <div class="batch-title">⚡ إنتاج جماعي</div>
       <textarea id="vt-batch-names" placeholder="أدخل اسماً في كل سطر:&#10;عائلة أحمد الرشيد&#10;محمد علي"></textarea>
-      <div class="batch-hint">كل سطر = لوحة منفصلة — القالب المختار يُطبّق على الكل</div>
+      <div class="batch-group-row">
+        <label for="vt-batch-group-size">عدد الأسماء في الصفحة الواحدة</label>
+        <input type="number" id="vt-batch-group-size" min="1" max="100" value="1">
+      </div>
+      <div class="batch-hint">كل اسم في سطر، وسيتم جمع العدد المحدد تحت بعض في كل لوحة.</div>
       <div class="batch-options">
         <div class="batch-opt selected" id="vt-batch-opt-pdf" onclick="selectBatchOpt('vt','pdf')">📄 PDF واحد</div>
         <div class="batch-opt" id="vt-batch-opt-imgs" onclick="selectBatchOpt('vt','imgs')">🖼 صور منفردة</div>
@@ -429,8 +453,16 @@
         <div class="font-section-title">🔤 نوع الخط</div>
         <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
         <select id="vk-donor-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
+        <select id="vk-donor-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="vk-proj-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+        <select id="vk-proj-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
       </div>
     </div>
 
@@ -542,7 +574,11 @@
     <div class="batch-section">
       <div class="batch-title">⚡ إنتاج جماعي</div>
       <textarea id="vk-batch-names" placeholder="أدخل اسماً في كل سطر:&#10;Ramazan BARAN&#10;عائلة محمد علي&#10;Mehmet YILMAZ"></textarea>
-      <div class="batch-hint">🔄 القالب يُختار تلقائياً حسب لغة كل اسم</div>
+      <div class="batch-group-row">
+        <label for="vk-batch-group-size">عدد الأسماء في الصفحة الواحدة</label>
+        <input type="number" id="vk-batch-group-size" min="1" max="100" value="1">
+      </div>
+      <div class="batch-hint">كل اسم في سطر، وسيتم جمع العدد المحدد تحت بعض في كل لوحة.</div>
       <div class="batch-options">
         <div class="batch-opt selected" id="vk-batch-opt-pdf" onclick="selectBatchOpt('vk','pdf')">📄 PDF واحد</div>
         <div class="batch-opt" id="vk-batch-opt-imgs" onclick="selectBatchOpt('vk','imgs')">🖼 صور منفردة</div>
@@ -650,6 +686,12 @@
             <select id="batch-edit-donor-font" onchange="refreshEditPreview()" class="ep-select"></select>
           </div>
           <div class="ep-field">
+            <label class="ep-label">اتجاه النص</label>
+            <select id="batch-edit-donor-dir" onchange="refreshEditPreview()" class="ep-select">
+              <option value="rtl">يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+            </select>
+          </div>
+          <div class="ep-field">
             <label class="ep-label">
               الحجم
               <label class="ep-auto-toggle">
@@ -694,6 +736,12 @@
           <div class="ep-field">
             <label class="ep-label">نوع الخط</label>
             <select id="batch-edit-proj-font" onchange="refreshEditPreview()" class="ep-select"></select>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">اتجاه النص</label>
+            <select id="batch-edit-proj-dir" onchange="refreshEditPreview()" class="ep-select">
+              <option value="rtl">يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+            </select>
           </div>
           <div class="ep-field">
             <label class="ep-label">
