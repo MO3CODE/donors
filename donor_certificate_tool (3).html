@@ -1144,6 +1144,7 @@ function toggleAuto(lang, field) {
   slider.style.opacity = isAuto ? "0.4" : "1";
   if (lang === "ar") renderArabic();
   else if (lang === "en") renderEnglish();
+  else if (lang === "vt") renderVert();
   else renderOrgs();
 }
 
@@ -1621,7 +1622,7 @@ function drawOnCanvas(canvas, name, project, lang, img) {
 
 function drawCertTextDirect(ctx, donorText, projectText, lang, canvasW, canvasH) {
   const usableW = canvasW ? (canvasW - 240) : USABLE_W;
-  const dir = lang === 'ar' || lang === 'en' || lang === 'org' ? 'rtl' : 'ltr';
+  const dir = lang === 'ar' || lang === 'en' || lang === 'org' || lang === 'vt' ? 'rtl' : 'ltr';
   const donorFont = getFont(lang, 'donor');
   const projFont  = getFont(lang, 'proj');
   const donorX = parseInt(document.getElementById(`${lang}-donor-x`).value);
