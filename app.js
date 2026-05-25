@@ -383,7 +383,7 @@ function loadEnglishTemplate(input) {
 // Returns the org/tab name label for use in filenames
 function _getTabLabel(lang) {
   if (lang === 'orgs')  return _getOrgSlotName();
-  if (lang === 'vacip') return 'الأضاحي';
+  if (lang === 'vacip') return 'Güzel Eser';
   if (lang.startsWith('ct-')) {
     const ct = CUSTOM_TABS.find(t => t.id === lang.slice(3));
     return ct ? ct.name : 'جهة';
