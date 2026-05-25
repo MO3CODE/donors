@@ -398,7 +398,7 @@ function _getTabLabel(lang) {
 // Returns the active org slot display name
 function _getOrgSlotName() {
   if (ORG_ACTIVE_SLOT === 'stk')     return 'STK';
-  if (ORG_ACTIVE_SLOT === 'ummetin') return 'ÜMMETİN';
+  if (ORG_ACTIVE_SLOT === 'ummetin') return 'ÜMMETİN ABİSİ';
   // custom slot: try to read from the uploaded file badge or fallback
   return 'الجهة';
 }
