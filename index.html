@@ -1,0 +1,627 @@
+﻿<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>أداة عمل لوحات المتبرعين</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700&family=Scheherazade+New:wght@400;700&family=Lateef:wght@400;700&family=Rakkas&family=Reem Kufi:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Alexandria:wght@400;700&family=Righteous&family=Roboto:wght@400;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@400;700&family=Pinyon+Script&family=Great+Vibes&family=Dancing+Script:wght@400;700&family=Pacifico&family=Lobster&family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&family=Tangerine:wght@400;700&family=Satisfy&family=Alex+Brush&family=Allura&family=Italianno&family=Noto+Kufi+Arabic:wght@400;700&family=Mada:wght@400;700&family=Tajawal:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&family=Changa:wght@400;700&family=Harmattan:wght@400;700&family=Mirza:wght@400;700&family=Aref+Ruqaa&family=Qahiri&family=Markazi+Text:wght@400;700&family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🏅 أداة عمل لوحات المتبرعين</h1>
+    <span>Donor Certificate Generator</span>
+  </div>
+  <a href="https://www.linkedin.com/in/mo3d/" target="_blank" class="org-badge">برمجة Mohammed Alsalahi</a>
+</div>
+
+<div class="tabs" id="tabs-bar">
+  <button class="tab-btn active" id="tabBtn-orgs" onclick="switchTab('orgs',this)">🏢 الجهات</button>
+  <button class="tab-btn" id="tabBtn-vacip" onclick="switchTab('vacip',this)">🐑 الأضاحي / Kurban</button>
+  <button class="tab-btn tab-add-btn" id="tab-add-btn" onclick="openNewTabModal()" title="إضافة تبويب جديد">＋</button>
+</div>
+
+<!-- New Tab Modal -->
+<div id="new-tab-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;">
+  <div style="background:#1a2a4a;border:1px solid rgba(200,164,90,0.5);border-radius:14px;padding:28px 24px;width:340px;max-width:90vw;">
+    <div style="font-family:'Amiri',serif;font-size:17px;color:#f0d98a;margin-bottom:16px;">➕ تبويب جديد</div>
+    <label style="font-size:12px;color:#9aaccc;display:block;margin-bottom:6px;">اسم التبويب / الجهة</label>
+    <input id="new-tab-name" type="text" placeholder="مثال: مؤسسة الرحمة" style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.4);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:14px;direction:rtl;margin-bottom:16px;">
+    <div style="display:flex;gap:10px;">
+      <button onclick="confirmNewTab()" style="flex:1;padding:10px;background:linear-gradient(135deg,#c8a45a,#a8843a);border:none;border-radius:8px;color:#1a2a4a;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">إنشاء</button>
+      <button onclick="closeNewTabModal()" style="flex:1;padding:10px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:14px;cursor:pointer;">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- ORGS TAB -->
+<div id="tab-orgs" class="tab-content active main">
+  <div class="panel">
+    <h2>بيانات اللوحة — الجهات</h2>
+
+    <!-- Org slot selector -->
+    <div class="field">
+      <div style="font-size:12px;color:#c8a45a;font-weight:700;margin-bottom:8px;">اختر قالب الجهة</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div id="org-slot-stk" class="org-slot-btn" onclick="selectOrgSlot('stk')">
+          <input type="file" id="org-upload-stk" accept="image/*" style="display:none" onchange="loadOrgTemplate(this,'stk')" onclick="event.stopPropagation()">
+          <div style="flex:1">
+            <div style="color:#e8e8e8;font-size:13px;font-weight:700;">STK</div>
+            <div style="color:#9aaccc;font-size:11px;margin-top:2px;">Şanlıurfa STK Derneği</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="org-slot-status" id="org-status-stk">—</span>
+            <button onclick="event.stopPropagation();document.getElementById('org-upload-stk').click()"
+              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;">رفع</button>
+          </div>
+        </div>
+
+        <div id="org-slot-ummetin" class="org-slot-btn" onclick="selectOrgSlot('ummetin')">
+          <input type="file" id="org-upload-ummetin" accept="image/*" style="display:none" onchange="loadOrgTemplate(this,'ummetin')" onclick="event.stopPropagation()">
+          <div style="flex:1">
+            <div style="color:#e8e8e8;font-size:13px;font-weight:700;">ÜMMETİN ABİSİ</div>
+            <div style="color:#9aaccc;font-size:11px;margin-top:2px;">Ümmetin Abisi Derneği</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="org-slot-status" id="org-status-ummetin">—</span>
+            <button onclick="event.stopPropagation();document.getElementById('org-upload-ummetin').click()"
+              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;">رفع</button>
+          </div>
+        </div>
+
+        <div id="org-slot-custom" class="org-slot-btn org-slot-active" onclick="selectOrgSlot('custom')">
+          <input type="file" id="org-upload-custom" accept="image/*" style="display:none" onchange="loadOrgTemplate(this,'custom')" onclick="event.stopPropagation()">
+          <div style="flex:1">
+            <div style="color:#e8e8e8;font-size:13px;font-weight:700;">قالب مخصص</div>
+            <div style="color:#9aaccc;font-size:11px;margin-top:2px;">ارفع قالب جهتك الخاصة</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="org-slot-status" id="org-status-custom">—</span>
+            <button onclick="event.stopPropagation();document.getElementById('org-upload-custom').click()"
+              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;">رفع</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-toggle-label">اسم الجهة / المنظمة<label class="toggle-switch"><input type="checkbox" id="org-donor-enabled" checked onchange="renderOrgs()"><span class="toggle-slider"></span></label></label>
+      <textarea id="org-donor" rows="3" placeholder="أدخل اسم الجهة أو المنظمة&#10;مثال: جمعية الهلال الأحمر" oninput="renderOrgs()"></textarea>
+      <div class="hint">يمكن إدخال أسماء متعددة على سطر أو سطرين</div>
+    </div>
+
+    <div class="field">
+      <label class="field-toggle-label">اسم المشروع<label class="toggle-switch"><input type="checkbox" id="org-proj-enabled" checked onchange="renderOrgs()"><span class="toggle-slider"></span></label></label>
+      <input type="text" id="org-project" placeholder="مثال: VACİP KURBANI" oninput="renderOrgs()">
+      <div class="hint">يظهر داخل الشريط الأزرق</div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">🔤 نوع الخط</div>
+        <label style="font-size:12px;color:#9aaccc">خط اسم الجهة</label>
+        <select id="org-donor-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+        <select id="org-proj-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">📐 اسم الجهة — الحجم والموضع</div>
+        <label style="font-size:12px;color:#9aaccc">الحجم</label>
+        <div class="font-control">
+          <input type="range" id="org-donor-size" min="20" max="300" value="64" oninput="document.getElementById('org-donor-size-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-donor-size-val">64</span>
+        </div>
+        <label class="auto-toggle">
+          <input type="checkbox" id="org-donor-auto" checked onchange="toggleAuto('org','donor')"> حجم تلقائي
+        </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+        <div class="font-control">
+          <input type="range" id="org-donor-y" min="50" max="1200" value="590" oninput="document.getElementById('org-donor-y-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-donor-y-val">590</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+        <div class="font-control">
+          <input type="range" id="org-donor-x" min="0" max="1754" value="877" oninput="document.getElementById('org-donor-x-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-donor-x-val">877</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">📋 اسم المشروع — الحجم والموضع</div>
+        <label style="font-size:12px;color:#9aaccc">الحجم</label>
+        <div class="font-control">
+          <input type="range" id="org-proj-size" min="20" max="300" value="72" oninput="document.getElementById('org-proj-size-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-proj-size-val">72</span>
+        </div>
+        <label class="auto-toggle">
+          <input type="checkbox" id="org-proj-auto" checked onchange="toggleAuto('org','proj')"> حجم تلقائي
+        </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+        <div class="font-control">
+          <input type="range" id="org-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('org-proj-y-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-proj-y-val">842</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+        <div class="font-control">
+          <input type="range" id="org-proj-x" min="0" max="1754" value="877" oninput="document.getElementById('org-proj-x-val').textContent=this.value; renderOrgs()">
+          <span class="size-val" id="org-proj-x-val">877</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-generate" onclick="renderOrgs()">🔄 معاينة اللوحة</button>
+    <div class="export-btns">
+      <button class="btn-download visible" onclick="downloadCert('orgs','png')">⬇ PNG</button>
+      <button class="btn-download visible" onclick="downloadCert('orgs','pdf')">⬇ PDF</button>
+      <button class="btn-whatsapp" onclick="shareWhatsapp('orgs')">📲 واتساب</button>
+    </div>
+
+    <div class="batch-section">
+      <div class="batch-title">⚡ إنتاج جماعي</div>
+      <textarea id="org-batch-names" placeholder="أدخل اسماً في كل سطر:&#10;جمعية الهلال الأحمر&#10;منظمة أطباء بلا حدود"></textarea>
+      <div class="batch-hint">كل سطر = لوحة منفصلة — القالب المختار يُطبّق على الكل</div>
+      <div class="batch-options">
+        <div class="batch-opt selected" id="org-batch-opt-pdf" onclick="selectBatchOpt('org','pdf')">📄 PDF واحد</div>
+        <div class="batch-opt" id="org-batch-opt-imgs" onclick="selectBatchOpt('org','imgs')">🖼 صور منفردة</div>
+      </div>
+      <button class="btn-batch" onclick="startBatch('orgs')">🚀 ابدأ الإنتاج</button>
+      <div class="batch-progress" id="org-batch-progress">
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="org-batch-bar"></div></div>
+        <div class="progress-text" id="org-batch-text">جارٍ المعالجة...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-area">
+    <button class="preview-toggle" id="org-toggle" onclick="togglePreview('orgs')" style="display:none">
+      👁 إظهار المعاينة ↓
+    </button>
+    <div id="org-upload-prompt" style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;background:rgba(255,255,255,0.04);border:2px dashed rgba(200,164,90,0.3);border-radius:12px;gap:12px">
+      <div style="font-size:40px">🏢</div>
+      <div style="color:#c8a45a;font-size:15px;font-weight:700">اختر قالب الجهة من القائمة</div>
+      <div style="color:#9aaccc;font-size:12px">اضغط على STK أو ÜMMETİN ABİSİ أو ارفع قالباً مخصصاً</div>
+    </div>
+    <div class="canvas-wrapper" id="org-canvas-wrapper" style="display:none">
+      <canvas id="canvas-orgs-offscreen" width="1754" height="1241"></canvas>
+    </div>
+    <div class="status" id="org-status"></div>
+  </div>
+</div>
+
+<!-- VACIP / ADAHI TAB -->
+<div id="tab-vacip" class="tab-content main">
+  <div class="panel">
+    <h2>🐑 الأضاحي / Kurban</h2>
+
+    <div class="field">
+      <label class="field-toggle-label">اسم المتبرع / المتبرعين<label class="toggle-switch"><input type="checkbox" id="vk-donor-enabled" checked onchange="renderVacip()"><span class="toggle-slider"></span></label></label>
+      <textarea id="vk-donor" rows="3"
+        placeholder="اسم عربي → قالب الأضاحي&#10;Latin name → VACİP KURBAN template"
+        oninput="renderVacip()"></textarea>
+      <div class="hint">🔄 يتم اختيار القالب تلقائياً حسب لغة الاسم</div>
+    </div>
+
+    <div class="field">
+      <label>القالب</label>
+      <div class="vk-template-btns">
+        <button id="vk-tpl-auto"   class="vk-tpl-btn vk-tpl-active" onclick="setVKTemplate('auto')">🔄 تلقائي</button>
+        <button id="vk-tpl-arabic" class="vk-tpl-btn"               onclick="setVKTemplate('arabic')">🇾🇪 عربي</button>
+        <button id="vk-tpl-turkish" class="vk-tpl-btn"              onclick="setVKTemplate('turkish')">🇹🇷 تركي</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="field-toggle-label">اسم المشروع <span style="color:#9aaccc;font-size:11px">(اختياري)</span><label class="toggle-switch"><input type="checkbox" id="vk-proj-enabled" checked onchange="renderVacip()"><span class="toggle-slider"></span></label></label>
+      <input type="text" id="vk-project" placeholder="اتركه فارغاً إذا كان مدمجاً في القالب" oninput="renderVacip()" style="direction:rtl">
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">🔤 نوع الخط</div>
+        <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
+        <select id="vk-donor-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+        <select id="vk-proj-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">📐 حجم وموضع — اسم المتبرع</div>
+        <label style="font-size:12px;color:#9aaccc">الحجم</label>
+        <div class="font-control">
+          <input type="range" id="vk-donor-size" min="20" max="300" value="90" oninput="document.getElementById('vk-donor-size-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-donor-size-val">90</span>
+        </div>
+        <label class="auto-toggle">
+          <input type="checkbox" id="vk-donor-auto" checked onchange="toggleAuto('vk','donor')"> حجم تلقائي
+        </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+        <div class="font-control">
+          <input type="range" id="vk-donor-y" min="50" max="1200" value="620" oninput="document.getElementById('vk-donor-y-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-donor-y-val">620</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+        <div class="font-control">
+          <input type="range" id="vk-donor-x" min="0" max="1754" value="877" oninput="document.getElementById('vk-donor-x-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-donor-x-val">877</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="font-section">
+        <div class="font-section-title">📋 حجم وموضع — اسم المشروع</div>
+        <label style="font-size:12px;color:#9aaccc">الحجم</label>
+        <div class="font-control">
+          <input type="range" id="vk-proj-size" min="20" max="300" value="72" oninput="document.getElementById('vk-proj-size-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-proj-size-val">72</span>
+        </div>
+        <label class="auto-toggle">
+          <input type="checkbox" id="vk-proj-auto" checked onchange="toggleAuto('vk','proj')"> حجم تلقائي
+        </label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+        <div class="font-control">
+          <input type="range" id="vk-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('vk-proj-y-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-proj-y-val">842</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+        <div class="font-control">
+          <input type="range" id="vk-proj-x" min="0" max="1754" value="877" oninput="document.getElementById('vk-proj-x-val').textContent=this.value; renderVacip()">
+          <span class="size-val" id="vk-proj-x-val">877</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload zones -->
+    <div class="field">
+      <label>رفع القوالب</label>
+      <div class="upload-zone upload-zone-row" onclick="document.getElementById('vk-tr-upload').click()">
+        <input type="file" id="vk-tr-upload" accept="image/*" style="display:none" onchange="loadVacipTemplate(this,'tr')">
+        <span class="upload-zone-flag">🇹🇷</span>
+        <div class="upload-zone-info">
+          <div>قالب VACİP KURBAN</div>
+          <div class="upload-zone-sub">للأسماء التركية / اللاتينية</div>
+        </div>
+        <span id="vk-upload-tr-badge" class="upload-zone-badge">—</span>
+      </div>
+      <div class="upload-zone upload-zone-row" onclick="document.getElementById('vk-ar-upload').click()">
+        <input type="file" id="vk-ar-upload" accept="image/*" style="display:none" onchange="loadVacipTemplate(this,'ar')">
+        <span class="upload-zone-flag">🇾🇪</span>
+        <div class="upload-zone-info">
+          <div>قالب مشروع الأضاحي</div>
+          <div class="upload-zone-sub">للأسماء العربية</div>
+        </div>
+        <span id="vk-upload-ar-badge" class="upload-zone-badge">—</span>
+      </div>
+    </div>
+
+    <button class="btn-generate" onclick="renderVacip()">🔄 معاينة اللوحة</button>
+    <div class="export-btns">
+      <button class="btn-download visible" onclick="downloadCert('vacip','png')">⬇ PNG</button>
+      <button class="btn-download visible" onclick="downloadCert('vacip','pdf')">⬇ PDF</button>
+      <button class="btn-whatsapp" onclick="shareWhatsapp('vacip')">📲 واتساب</button>
+    </div>
+
+    <div class="batch-section">
+      <div class="batch-title">⚡ إنتاج جماعي</div>
+      <textarea id="vk-batch-names" placeholder="أدخل اسماً في كل سطر:&#10;Ramazan BARAN&#10;عائلة محمد علي&#10;Mehmet YILMAZ"></textarea>
+      <div class="batch-hint">🔄 القالب يُختار تلقائياً حسب لغة كل اسم</div>
+      <div class="batch-options">
+        <div class="batch-opt selected" id="vk-batch-opt-pdf" onclick="selectBatchOpt('vk','pdf')">📄 PDF واحد</div>
+        <div class="batch-opt" id="vk-batch-opt-imgs" onclick="selectBatchOpt('vk','imgs')">🖼 صور منفردة</div>
+      </div>
+      <button class="btn-batch" onclick="startBatch('vacip')">🚀 ابدأ الإنتاج</button>
+      <div class="batch-progress" id="vk-batch-progress">
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="vk-batch-bar"></div></div>
+        <div class="progress-text" id="vk-batch-text">جارٍ المعالجة...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-area">
+    <div id="vk-upload-prompt" style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;background:rgba(255,255,255,0.04);border:2px dashed rgba(200,164,90,0.3);border-radius:12px;cursor:pointer;gap:12px">
+      <div style="font-size:40px">🐑</div>
+      <div style="color:#c8a45a;font-size:15px;font-weight:700">ارفع القوالب من الجانب</div>
+      <div style="color:#9aaccc;font-size:12px;text-align:center;">قالب تركي + قالب عربي<br>سيتم الاختيار تلقائياً حسب الاسم</div>
+    </div>
+    <div class="canvas-wrapper" id="vk-canvas-wrapper" style="display:none">
+      <canvas id="canvas-vacip" width="1754" height="1241"></canvas>
+    </div>
+    <div class="status" id="vk-status"></div>
+  </div>
+</div>
+
+<!-- Batch Preview Modal -->
+<div id="batch-preview-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.88);overflow-y:auto;padding:20px 12px;">
+  <div style="max-width:1200px;margin:0 auto;background:#1a2a4a;border-radius:16px;border:1px solid rgba(200,164,90,0.4);overflow:hidden;">
+
+    <!-- Header -->
+    <div style="background:linear-gradient(90deg,#29407d,#1e2f5a);padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #c8a45a;flex-shrink:0;">
+      <div>
+        <div style="font-family:'Amiri',serif;font-size:18px;color:#f0d98a;">معاينة الإنتاج الجماعي</div>
+        <div id="batch-preview-count" style="font-size:12px;color:#9aaccc;margin-top:2px;"></div>
+      </div>
+      <button onclick="closeBatchPreview()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e8e8e8;width:36px;height:36px;border-radius:8px;cursor:pointer;font-size:18px;">✕</button>
+    </div>
+
+    <!-- ===== GRID VIEW ===== -->
+    <div id="batch-grid-view">
+      <!-- Toolbar -->
+      <div style="padding:14px 20px;background:rgba(0,0,0,0.2);border-bottom:1px solid rgba(200,164,90,0.15);display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div id="batch-preview-generating" style="color:#9aaccc;font-size:13px;display:flex;align-items:center;gap:8px;">
+          <div style="width:13px;height:13px;border:2px solid #c8a45a;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0;"></div>
+          جارٍ توليد المعاينات...
+        </div>
+        <div id="batch-preview-actions" style="display:none;gap:10px;flex-wrap:wrap;align-items:center;width:100%;">
+          <span style="color:#9aaccc;font-size:12px;flex:1;">انقر على أي شهادة لتعديلها — ثم أكد الحفظ</span>
+          <button onclick="confirmBatchDownload()" style="background:linear-gradient(135deg,#c8a45a,#a8843a);border:none;color:#1a2a4a;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;padding:9px 26px;border-radius:8px;cursor:pointer;">✓ تأكيد وحفظ الكل</button>
+          <button onclick="closeBatchPreview()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.2);color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;padding:9px 16px;border-radius:8px;cursor:pointer;">إلغاء</button>
+        </div>
+      </div>
+      <!-- Grid -->
+      <div id="batch-preview-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;padding:18px;min-height:100px;"></div>
+    </div>
+
+    <!-- ===== EDIT VIEW ===== -->
+    <div id="batch-edit-view" style="display:none;flex-direction:row;min-height:500px;">
+
+      <!-- Left: canvas preview -->
+      <div style="flex:1;min-width:0;background:#0d1b35;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start;padding:16px;">
+        <div id="batch-edit-canvas-wrap" style="width:100%;overflow:hidden;position:relative;flex-shrink:0;">
+          <canvas id="batch-edit-canvas-preview" width="1754" height="1241" style="display:block;transform-origin:top left;"></canvas>
+        </div>
+      </div>
+
+      <!-- Right: edit panel -->
+      <div style="width:320px;flex-shrink:0;background:#1e2f5a;border-right:1px solid rgba(200,164,90,0.2);display:flex;flex-direction:column;overflow-y:auto;">
+
+        <!-- panel header -->
+        <div style="padding:14px 18px;border-bottom:1px solid rgba(200,164,90,0.2);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;">
+          <div id="batch-edit-title" style="font-family:'Amiri',serif;font-size:15px;color:#f0d98a;"></div>
+          <div style="display:flex;gap:6px;">
+            <button id="batch-edit-prev" onclick="navigateEdit(-1)" title="السابق"
+              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#e8e8e8;font-size:16px;width:32px;height:32px;border-radius:7px;cursor:pointer;">‹</button>
+            <button id="batch-edit-next" onclick="navigateEdit(1)" title="التالي"
+              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#e8e8e8;font-size:16px;width:32px;height:32px;border-radius:7px;cursor:pointer;">›</button>
+          </div>
+        </div>
+
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
+
+          <!-- ── النص ── -->
+          <div class="ep-section">نص الشهادة</div>
+
+          <div class="ep-field">
+            <label class="ep-label">اسم المتبرع<label class="toggle-switch"><input type="checkbox" id="batch-edit-donor-enabled" checked onchange="refreshEditPreview()"><span class="toggle-slider"></span></label></label>
+            <textarea id="batch-edit-name" rows="3" oninput="refreshEditPreview()" class="ep-input" style="resize:vertical;"></textarea>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">اسم المشروع<label class="toggle-switch"><input type="checkbox" id="batch-edit-proj-enabled" checked onchange="refreshEditPreview()"><span class="toggle-slider"></span></label></label>
+            <textarea id="batch-edit-project" rows="2" oninput="refreshEditPreview()" class="ep-input" style="resize:vertical;"></textarea>
+          </div>
+
+          <!-- ── خط المتبرع ── -->
+          <div class="ep-section">خط اسم المتبرع</div>
+
+          <div class="ep-field">
+            <label class="ep-label">نوع الخط</label>
+            <select id="batch-edit-donor-font" onchange="refreshEditPreview()" class="ep-select"></select>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">
+              الحجم
+              <label class="ep-auto-toggle">
+                <input type="checkbox" id="batch-edit-donor-auto" onchange="refreshEditPreview()"> تلقائي
+              </label>
+            </label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-donor-size" min="20" max="300" value="64"
+                oninput="_editVal('batch-edit-donor-size-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-donor-size-val">64</span>
+            </div>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">الارتفاع (Y)</label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-donor-y" min="50" max="1200" value="590"
+                oninput="_editVal('batch-edit-donor-y-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-donor-y-val">590</span>
+            </div>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">المحور الأفقي (X)</label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-donor-x" min="0" max="1754" value="877"
+                oninput="_editVal('batch-edit-donor-x-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-donor-x-val">877</span>
+            </div>
+          </div>
+
+          <!-- ── خط المشروع ── -->
+          <div class="ep-section">خط اسم المشروع</div>
+
+          <div class="ep-field">
+            <label class="ep-label">نوع الخط</label>
+            <select id="batch-edit-proj-font" onchange="refreshEditPreview()" class="ep-select"></select>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">
+              الحجم
+              <label class="ep-auto-toggle">
+                <input type="checkbox" id="batch-edit-proj-auto" onchange="refreshEditPreview()"> تلقائي
+              </label>
+            </label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-proj-size" min="20" max="300" value="72"
+                oninput="_editVal('batch-edit-proj-size-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-proj-size-val">72</span>
+            </div>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">الارتفاع (Y)</label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-proj-y" min="50" max="1200" value="842"
+                oninput="_editVal('batch-edit-proj-y-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-proj-y-val">842</span>
+            </div>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">المحور الأفقي (X)</label>
+            <div class="ep-range-row">
+              <input type="range" id="batch-edit-proj-x" min="0" max="1754" value="877"
+                oninput="_editVal('batch-edit-proj-x-val').textContent=this.value; refreshEditPreview()" class="ep-range">
+              <span class="ep-range-val" id="batch-edit-proj-x-val">877</span>
+            </div>
+          </div>
+
+          <!-- ── أزرار ── -->
+          <button onclick="saveCardEdit()"
+            style="background:linear-gradient(135deg,#c8a45a,#a8843a);border:none;color:#1a2a4a;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;padding:11px;border-radius:8px;cursor:pointer;margin-top:4px;">
+            ✓ حفظ والعودة للشبكة
+          </button>
+          <button onclick="backToGrid()"
+            style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:#9aaccc;font-family:'Cairo',sans-serif;font-size:13px;padding:9px;border-radius:8px;cursor:pointer;margin-bottom:16px;">
+            رجوع بدون حفظ
+          </button>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.preview-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(200,164,90,0.2);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.preview-card:hover { border-color: rgba(200,164,90,0.7); transform: translateY(-2px); }
+.preview-card > img { width:100%; display:block; }
+.preview-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  gap: 6px;
+}
+.preview-card-name {
+  font-size: 11px;
+  color: #9aaccc;
+  direction: rtl;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+.preview-card-edit-btn {
+  background: rgba(200,164,90,0.15);
+  border: 1px solid rgba(200,164,90,0.4);
+  color: #c8a45a;
+  font-family: 'Cairo', sans-serif;
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.preview-card-edit-btn:hover { background: rgba(200,164,90,0.3); }
+#batch-edit-view { direction: rtl; }
+#batch-edit-prev:disabled, #batch-edit-next:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Edit panel helpers */
+.ep-section {
+  font-size: 11px; font-weight: 700; color: #c8a45a;
+  text-transform: uppercase; letter-spacing: 0.8px;
+  border-bottom: 1px solid rgba(200,164,90,0.2);
+  padding-bottom: 5px; margin-top: 4px;
+}
+.ep-field { display: flex; flex-direction: column; gap: 5px; }
+.ep-label { font-size: 12px; color: #9aaccc; display: flex; align-items: center; justify-content: space-between; }
+.ep-auto-toggle { font-size: 11px; color: #c8a45a; display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.ep-auto-toggle input { accent-color: #c8a45a; }
+.ep-input {
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(200,164,90,0.3);
+  color: #e8e8e8; font-family: 'Cairo', sans-serif; font-size: 13px;
+  padding: 8px 10px; border-radius: 8px; direction: rtl; width: 100%;
+  transition: border-color 0.15s;
+}
+.ep-input:focus { border-color: rgba(200,164,90,0.7); outline: none; }
+.ep-select {
+  width: 100%; padding: 7px 10px;
+  background: rgba(255,255,255,0.08); border: 1px solid rgba(200,164,90,0.3);
+  border-radius: 8px; color: #e8e8e8; font-family: 'Cairo', sans-serif; font-size: 12px;
+}
+.ep-range-row { display: flex; align-items: center; gap: 8px; }
+.ep-range { flex: 1; accent-color: #c8a45a; }
+.ep-range-val { font-size: 11px; color: #c8a45a; min-width: 30px; text-align: center; }
+.org-slot-btn {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.org-slot-btn:hover { border-color: rgba(200,164,90,0.4); background: rgba(255,255,255,0.07); }
+.org-slot-active { border-color: #c8a45a !important; background: rgba(200,164,90,0.1) !important; }
+.org-slot-status { color: #c8a45a; font-weight: 700; font-size: 16px; min-width: 16px; text-align: center; }
+.field-toggle-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #ccc;
+  margin-bottom: 6px;
+  cursor: default;
+}
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.15);
+  border-radius: 20px;
+  transition: background 0.2s;
+}
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 14px; height: 14px;
+  left: 3px; top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider { background: #c8a45a; }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
+</style>
+
+<script src="app.js"></script>
+</body>
+</html>
