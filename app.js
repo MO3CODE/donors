@@ -102,9 +102,17 @@ function _fieldEnabled(lang, field) {
   return el ? el.checked : true;
 }
 
+function _resolveTextDirection(mode, text) {
+  if (mode === 'ltr' || mode === 'rtl') return mode;
+  return /[\u0600-\u06FF]/.test(text || '') ? 'rtl' : 'ltr';
+}
+
+function getDirection(lang, field, text) {
+  const el = document.getElementById(`${lang}-${field}-dir`);
+  return _resolveTextDirection(el ? el.value : 'rtl', text);
+}
+
 function drawCertText(ctx, donorText, projectText, lang) {
-  const isRTL = (lang !== "orgs-ltr");
-  const dir = isRTL ? "rtl" : "ltr";
   ctx.textBaseline = "middle";
 
   const donorFont = getFont(lang, "donor");
@@ -122,7 +130,7 @@ function drawCertText(ctx, donorText, projectText, lang) {
     const projSize = getSize(lang, "proj", ctx, projText, USABLE_W * 0.85, 72, 28, projFont);
     ctx.font = `bold ${projSize}px "${projFont}", serif`;
     ctx.fillStyle = "#FFFFFF";
-    ctx.direction = dir;
+    ctx.direction = getDirection(lang, "proj", projText);
     ctx.textAlign = "center";
     ctx.fillText(projText, projX, projY);
   }
@@ -136,10 +144,12 @@ function drawCertText(ctx, donorText, projectText, lang) {
     const donorSize = getSize(lang, "donor", ctx, longestLine, USABLE_W * 0.8, 64, 22, donorFont);
     ctx.font = `bold ${donorSize}px "${donorFont}", serif`;
     ctx.fillStyle = "#1e2f5a";
-    ctx.direction = dir;
     ctx.textAlign = "center";
     const startY = donorY - ((totalLines - 1) * lineSpacing) / 2;
-    donorLines.forEach((line, i) => ctx.fillText(line.trim(), donorX, startY + i * lineSpacing));
+    donorLines.forEach((line, i) => {
+      ctx.direction = getDirection(lang, "donor", line);
+      ctx.fillText(line.trim(), donorX, startY + i * lineSpacing);
+    });
   }
 }
 
@@ -330,8 +340,8 @@ Object.defineProperty(window, 'ORG_IMG', {
 
 // Per-slot field IDs to snapshot when switching
 const ORG_SLOT_FIELD_IDS = [
-  'org-donor','org-project','org-batch-names',
-  'org-donor-font','org-proj-font',
+  'org-donor','org-project','org-batch-names','org-batch-group-size',
+  'org-donor-font','org-proj-font','org-donor-dir','org-proj-dir',
   'org-donor-size','org-proj-size',
   'org-donor-y','org-proj-y',
   'org-donor-x','org-proj-x',
@@ -343,8 +353,9 @@ const ORG_SLOT_CHECKBOX_IDS = [
 
 // Default values for each org slot field
 const ORG_SLOT_DEFAULTS = {
-  'org-donor': '', 'org-project': '', 'org-batch-names': '',
+  'org-donor': '', 'org-project': '', 'org-batch-names': '', 'org-batch-group-size': '1',
   'org-donor-font': 'Amiri', 'org-proj-font': 'Amiri',
+  'org-donor-dir': 'rtl', 'org-proj-dir': 'rtl',
   'org-donor-size': '64', 'org-proj-size': '72',
   'org-donor-y': '590', 'org-proj-y': '842',
   'org-donor-x': '877', 'org-proj-x': '877',
@@ -540,6 +551,7 @@ function downloadCert(lang, format) {
         donorY: parseInt(gv(pid('donor-y'))), projY: parseInt(gv(pid('proj-y'))),
         donorX: parseInt(gv(pid('donor-x'))), projX: parseInt(gv(pid('proj-x'))),
         donorMaxW: parseInt(gv(pid('donor-maxw'))||1400), projMaxW: parseInt(gv(pid('proj-maxw'))||1400),
+        donorDir: gv(pid('donor-dir')) || 'rtl', projDir: gv(pid('proj-dir')) || 'rtl',
         donorAuto: gb(pid('donor-auto')), projAuto: gb(pid('proj-auto')),
         donorEnabled: gb(pid('donor-enabled')), projEnabled: gb(pid('proj-enabled')),
       };
@@ -814,6 +826,8 @@ function _resolveSettings(lang, s) {
     projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  1400),
     donorColor   : s?.donorColor   ?? ((g(`${lang}-donor-color`) || {}).value || '#1e2f5a'),
     projColor    : s?.projColor    ?? ((g(`${lang}-proj-color`)  || {}).value || '#ffffff'),
+    donorDir     : s?.donorDir     ?? ((g(`${lang}-donor-dir`) || {}).value || 'rtl'),
+    projDir      : s?.projDir      ?? ((g(`${lang}-proj-dir`)  || {}).value || 'rtl'),
     donorLineH   : s?.donorLineH   ?? gv(`${lang}-donor-lineh`, 0),
   };
 }
@@ -833,7 +847,6 @@ function _calcSize(ctx, text, maxWidth, maxSize, minSize, fontFace, autoMode, fi
 
 function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
   const s   = _resolveSettings(lang, settings || null);
-  const dir = 'rtl';
   ctx.textBaseline = 'middle';
 
   // Project
@@ -843,7 +856,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     const projSize  = _calcSize(ctx, projText2, s.projMaxW ?? USABLE_W * 0.85, 72, 28, s.projFont, s.projAuto, s.projSize);
     ctx.font = `bold ${projSize}px "${s.projFont}", serif`;
     ctx.fillStyle = s.projColor || '#ffffff';
-    ctx.direction = dir;
+    ctx.direction = _resolveTextDirection(s.projDir, projText2);
     ctx.textAlign = 'center';
     ctx.fillText(projText2, s.projX, s.projY);
   }
@@ -858,10 +871,12 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     const donorSize   = _calcSize(ctx, longestLine, s.donorMaxW ?? USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
     ctx.font = `bold ${donorSize}px "${s.donorFont}", serif`;
     ctx.fillStyle = s.donorColor || '#1e2f5a';
-    ctx.direction = dir;
     ctx.textAlign = 'center';
     const startY = s.donorY - ((totalLines - 1) * lineSpacing) / 2;
-    donorLines.forEach((line, i) => ctx.fillText(line.trim(), s.donorX, startY + i * lineSpacing));
+    donorLines.forEach((line, i) => {
+      ctx.direction = _resolveTextDirection(s.donorDir, line);
+      ctx.fillText(line.trim(), s.donorX, startY + i * lineSpacing);
+    });
   }
 }
 
@@ -873,6 +888,21 @@ function canvasToJpegBase64(canvas) {
 let _pendingBatch = null;  // { lang, prefix, entries:[{name,project}], img }
 let _editingIndex = null;
 const THUMB_W = 480;
+
+function _getBatchGroupSize(prefix) {
+  const el = document.getElementById(`${prefix}-batch-group-size`);
+  const value = el ? parseInt(el.value, 10) : 1;
+  return Number.isFinite(value) && value > 0 ? Math.min(value, 100) : 1;
+}
+
+function _groupBatchNames(names, prefix) {
+  const size = _getBatchGroupSize(prefix);
+  const groups = [];
+  for (let i = 0; i < names.length; i += size) {
+    groups.push(names.slice(i, i + size).join('\n'));
+  }
+  return groups;
+}
 
 async function startBatch(lang) {
   // Custom tab support
@@ -888,6 +918,8 @@ async function startBatch(lang) {
     const initSettings = {
       donorFont: (document.getElementById(p+'donor-font')||{}).value||'Amiri',
       projFont:  (document.getElementById(p+'proj-font') ||{}).value||'Amiri',
+      donorDir:  (document.getElementById(p+'donor-dir') ||{}).value||'rtl',
+      projDir:   (document.getElementById(p+'proj-dir')  ||{}).value||'rtl',
       donorSize: parseInt((document.getElementById(p+'donor-size')||{}).value)||64,
       projSize:  parseInt((document.getElementById(p+'proj-size') ||{}).value)||72,
       donorY:    parseInt((document.getElementById(p+'donor-y')   ||{}).value)||590,
@@ -899,7 +931,7 @@ async function startBatch(lang) {
       donorEnabled:(document.getElementById(p+'donor-enabled')||{}).checked!==false,
       projEnabled: (document.getElementById(p+'proj-enabled') ||{}).checked!==false,
     };
-    const entries = names.map(name => ({ name, project: defaultProject, settings: { ...initSettings } }));
+    const entries = _groupBatchNames(names, p.slice(0, -1)).map(name => ({ name, project: defaultProject, settings: { ...initSettings } }));
     _pendingBatch = { lang, prefix: p.slice(0,-1), entries, img: tab.img };
     openBatchPreviewGrid();
     return;
@@ -924,7 +956,7 @@ async function startBatch(lang) {
   if (names.length === 0) { alert('لا توجد أسماء صالحة'); return; }
 
   const initSettings = _resolveSettings(prefix, null);
-  const entries = names.map(name => ({ name, project: defaultProject, settings: { ...initSettings } }));
+  const entries = _groupBatchNames(names, prefix).map(name => ({ name, project: defaultProject, settings: { ...initSettings } }));
   _pendingBatch = { lang, prefix, entries, img };
   openBatchPreviewGrid();
 }
@@ -1075,6 +1107,8 @@ function openCardEditor(index) {
   // Font selects
   _setSelect('batch-edit-donor-font', s.donorFont);
   _setSelect('batch-edit-proj-font',  s.projFont);
+  _setSelect('batch-edit-donor-dir',  s.donorDir || 'rtl');
+  _setSelect('batch-edit-proj-dir',   s.projDir || 'rtl');
 
   // Sizes
   _setRange('batch-edit-donor-size', 'batch-edit-donor-size-val', s.donorSize);
@@ -1169,6 +1203,8 @@ function _readEditSettings() {
   return {
     donorFont    : _editVal('batch-edit-donor-font').value,
     projFont     : _editVal('batch-edit-proj-font').value,
+    donorDir     : _editVal('batch-edit-donor-dir').value,
+    projDir      : _editVal('batch-edit-proj-dir').value,
     donorSize    : parseInt(_editVal('batch-edit-donor-size').value),
     projSize     : parseInt(_editVal('batch-edit-proj-size').value),
     donorAuto,
@@ -1415,7 +1451,7 @@ const CT_STATE_KEY = 'donor_cert_custom_tabs_v1';
 let CUSTOM_TABS = [];   // [{ id, name, templateDataUrl }]
 let _ctCounter  = 0;
 
-const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
+const CT_FIELD_IDS   = ['donor','project','batch-names','batch-group-size','donor-font','proj-font','donor-dir','proj-dir','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
 const CT_CB_IDS      = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
 const CT_SLIDER_IDS  = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
 
@@ -1484,6 +1520,8 @@ function _ctRender(tabId) {
   const settings = {
     donorFont:    (_ctEl(tabId,'donor-font')   || {}).value || 'Amiri',
     projFont:     (_ctEl(tabId,'proj-font')    || {}).value || 'Amiri',
+    donorDir:     (_ctEl(tabId,'donor-dir')    || {}).value || 'rtl',
+    projDir:      (_ctEl(tabId,'proj-dir')     || {}).value || 'rtl',
     donorSize:    parseInt((_ctEl(tabId,'donor-size') || {}).value) || 64,
     projSize:     parseInt((_ctEl(tabId,'proj-size')  || {}).value) || 72,
     donorY:       parseInt((_ctEl(tabId,'donor-y')    || {}).value) || 590,
@@ -1556,8 +1594,16 @@ function _buildCustomTabPanel(tab) {
         <div class="font-section-title">🔤 نوع الخط</div>
         <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
         <select id="${p}donor-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+        <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
+        <select id="${p}donor-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="${p}proj-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+        <select id="${p}proj-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
       </div>
     </div>
 
@@ -1655,7 +1701,11 @@ function _buildCustomTabPanel(tab) {
     <div class="batch-section">
       <div class="batch-title">⚡ إنتاج جماعي</div>
       <textarea id="${p}batch-names" placeholder="أدخل اسماً في كل سطر"></textarea>
-      <div class="batch-hint">كل سطر = لوحة منفصلة</div>
+      <div class="batch-group-row">
+        <label for="${p}batch-group-size">عدد الأسماء في الصفحة الواحدة</label>
+        <input type="number" id="${p}batch-group-size" min="1" max="100" value="1">
+      </div>
+      <div class="batch-hint">كل اسم في سطر، وسيتم جمع العدد المحدد تحت بعض في كل لوحة.</div>
       <div class="batch-options">
         <div class="batch-opt selected" id="${p}batch-opt-pdf" onclick="selectBatchOpt('ct-${id}','pdf')">📄 PDF واحد</div>
         <div class="batch-opt" id="${p}batch-opt-imgs" onclick="selectBatchOpt('ct-${id}','imgs')">🖼 صور منفردة</div>
@@ -1711,7 +1761,7 @@ function _addCustomTabToDOM(tab) {
   });
   // Re-attach batch opts save hooks
   if (typeof _hookStateSave === 'function') {
-    ['ct-' + tab.id + '-donor','ct-' + tab.id + '-project','ct-' + tab.id + '-batch-names'].forEach(id => {
+    ['ct-' + tab.id + '-donor','ct-' + tab.id + '-project','ct-' + tab.id + '-batch-names','ct-' + tab.id + '-batch-group-size'].forEach(id => {
       const el = document.getElementById(id);
       if (el) { el.addEventListener('input', saveCustomTabs); el.addEventListener('change', saveCustomTabs); }
     });
@@ -1831,9 +1881,12 @@ const STATE_FIELDS = [
   'ar-donor','ar-project','en-donor','en-project','org-donor','org-project','vk-donor','vk-project','vt-donor','vt-project',
   // batch textarea
   'ar-batch-names','en-batch-names','org-batch-names','vk-batch-names','vt-batch-names',
+  'org-batch-group-size','vk-batch-group-size','vt-batch-group-size',
   // font selects
   'ar-donor-font','ar-proj-font','en-donor-font','en-proj-font',
   'org-donor-font','org-proj-font','vk-donor-font','vk-proj-font','vt-donor-font','vt-proj-font',
+  // direction selects
+  'org-donor-dir','org-proj-dir','vk-donor-dir','vk-proj-dir','vt-donor-dir','vt-proj-dir',
   // size sliders
   'ar-donor-size','ar-proj-size','en-donor-size','en-proj-size',
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size','vt-donor-size','vt-proj-size',
@@ -2040,6 +2093,8 @@ function histRestoreSingle(entry) {
   const s = entry.settings || {};
   if (s.donorFont)    setVal(pid('donor-font'),    s.donorFont);
   if (s.projFont)     setVal(pid('proj-font'),     s.projFont);
+  if (s.donorDir)     setVal(pid('donor-dir'),     s.donorDir);
+  if (s.projDir)      setVal(pid('proj-dir'),      s.projDir);
   if (s.donorSize)  { setVal(pid('donor-size'),    s.donorSize);  setDisp(pid('donor-size'),  s.donorSize); }
   if (s.projSize)   { setVal(pid('proj-size'),     s.projSize);   setDisp(pid('proj-size'),   s.projSize); }
   if (s.donorY)     { setVal(pid('donor-y'),       s.donorY);     setDisp(pid('donor-y'),     s.donorY); }
