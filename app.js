@@ -465,10 +465,12 @@ function downloadCert(lang, format) {
   const canvas = document.getElementById(canvasId);
   const name = getFileName(lang);
   const statusEl = getStatusEl(lang);
+  if (!canvas) { if (statusEl) statusEl.textContent = '❌ لا يوجد قالب للتحميل'; return; }
   statusEl.textContent = "⏳ جارٍ التحضير...";
 
   if (format === "pdf") {
     canvas.toBlob(function(blob) {
+      if (!blob) { statusEl.textContent = '❌ القالب غير مُحمَّل — اضغط معاينة أولاً'; return; }
       const reader = new FileReader();
       reader.onload = function(e) {
         const imgData = e.target.result.split(",")[1]; // base64 only
@@ -582,30 +584,37 @@ function downloadCert(lang, format) {
     return;
   }
 
-  // PNG
-  canvas.toBlob(function(blob) {
-    if (!blob) {
+  // PNG — try toBlob first, fall back to toDataURL
+  try {
+    canvas.toBlob(function(blob) {
       try {
+        const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL("image/jpeg", 0.95);
         const link = document.createElement("a");
         link.download = `${name}.png`;
-        link.href = canvas.toDataURL("image/png");
+        link.href = url;
+        document.body.appendChild(link);
         link.click();
-        statusEl.textContent = "✓ تم التحميل";
+        document.body.removeChild(link);
+        if (blob) setTimeout(() => URL.revokeObjectURL(url), 5000);
+        statusEl.textContent = "✓ تم التحميل بنجاح";
       } catch(e) {
-        statusEl.textContent = "❌ فشل التحميل";
+        statusEl.textContent = "❌ فشل التحميل: " + e.message;
       }
-      return;
+    }, "image/png");
+  } catch(e) {
+    // Last resort: dataURL
+    try {
+      const link = document.createElement("a");
+      link.download = `${name}.png`;
+      link.href = canvas.toDataURL("image/jpeg", 0.95);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      statusEl.textContent = "✓ تم التحميل";
+    } catch(e2) {
+      statusEl.textContent = "❌ " + e2.message;
     }
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `${name}.png`;
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    statusEl.textContent = "✓ تم التحميل بنجاح";
-  }, "image/png");
+  }
 }
 
 function shareWhatsapp(lang) {
