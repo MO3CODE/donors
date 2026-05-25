@@ -129,6 +129,12 @@
           <input type="range" id="org-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-donor-maxw-val').textContent=this.value; renderOrgs()">
           <span class="size-val" id="org-donor-maxw-val">1400</span>
         </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+        <div class="color-row">
+          <input type="color" id="org-donor-color" value="#1e2f5a" oninput="renderOrgs()">
+          <span class="color-val" id="org-donor-color-val">#1e2f5a</span>
+          <button class="color-reset" onclick="document.getElementById('org-donor-color').value='#1e2f5a';renderOrgs()">↺</button>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="org-donor-y" min="50" max="1200" value="590" oninput="document.getElementById('org-donor-y-val').textContent=this.value; renderOrgs()">
@@ -157,6 +163,12 @@
         <div class="font-control">
           <input type="range" id="org-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-proj-maxw-val').textContent=this.value; renderOrgs()">
           <span class="size-val" id="org-proj-maxw-val">1400</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+        <div class="color-row">
+          <input type="color" id="org-proj-color" value="#ffffff" oninput="renderOrgs()">
+          <span class="color-val" id="org-proj-color-val">#ffffff</span>
+          <button class="color-reset" onclick="document.getElementById('org-proj-color').value='#ffffff';renderOrgs()">↺</button>
         </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
@@ -266,6 +278,12 @@
           <input type="range" id="vk-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-donor-maxw-val').textContent=this.value; renderVacip()">
           <span class="size-val" id="vk-donor-maxw-val">1400</span>
         </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+        <div class="color-row">
+          <input type="color" id="vk-donor-color" value="#1e2f5a" oninput="renderVacip()">
+          <span class="color-val" id="vk-donor-color-val">#1e2f5a</span>
+          <button class="color-reset" onclick="document.getElementById('vk-donor-color').value='#1e2f5a';renderVacip()">↺</button>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">
           <input type="range" id="vk-donor-y" min="50" max="1200" value="620" oninput="document.getElementById('vk-donor-y-val').textContent=this.value; renderVacip()">
@@ -294,6 +312,12 @@
         <div class="font-control">
           <input type="range" id="vk-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-proj-maxw-val').textContent=this.value; renderVacip()">
           <span class="size-val" id="vk-proj-maxw-val">1400</span>
+        </div>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+        <div class="color-row">
+          <input type="color" id="vk-proj-color" value="#ffffff" oninput="renderVacip()">
+          <span class="color-val" id="vk-proj-color-val">#ffffff</span>
+          <button class="color-reset" onclick="document.getElementById('vk-proj-color').value='#ffffff';renderVacip()">↺</button>
         </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
         <div class="font-control">

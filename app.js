@@ -710,6 +710,8 @@ function _resolveSettings(lang, s) {
     projEnabled  : s?.projEnabled  ?? enabledEl(`${lang}-proj-enabled`),
     donorMaxW    : s?.donorMaxW    ?? gv(`${lang}-donor-maxw`, 1400),
     projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  1400),
+    donorColor   : s?.donorColor   ?? (g(`${lang}-donor-color`) || {}).value || '#1e2f5a',
+    projColor    : s?.projColor    ?? (g(`${lang}-proj-color`)  || {}).value || '#ffffff',
   };
 }
 
@@ -737,7 +739,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     const projText2 = projLines.join(' | ');
     const projSize  = _calcSize(ctx, projText2, s.projMaxW ?? USABLE_W * 0.85, 72, 28, s.projFont, s.projAuto, s.projSize);
     ctx.font = `bold ${projSize}px "${s.projFont}", serif`;
-    ctx.fillStyle = '#FFFFFF';
+    ctx.fillStyle = s.projColor || '#ffffff';
     ctx.direction = dir;
     ctx.textAlign = 'center';
     ctx.fillText(projText2, s.projX, s.projY);
@@ -751,7 +753,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     const longestLine = donorLines.reduce((a, b) => a.length > b.length ? a : b, '');
     const donorSize   = _calcSize(ctx, longestLine, s.donorMaxW ?? USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
     ctx.font = `bold ${donorSize}px "${s.donorFont}", serif`;
-    ctx.fillStyle = '#1e2f5a';
+    ctx.fillStyle = s.donorColor || '#1e2f5a';
     ctx.direction = dir;
     ctx.textAlign = 'center';
     const startY = s.donorY - ((totalLines - 1) * lineSpacing) / 2;
@@ -1253,7 +1255,7 @@ const CT_STATE_KEY = 'donor_cert_custom_tabs_v1';
 let CUSTOM_TABS = [];   // [{ id, name, templateDataUrl }]
 let _ctCounter  = 0;
 
-const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw'];
+const CT_FIELD_IDS   = ['donor','project','batch-names','donor-font','proj-font','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color'];
 const CT_CB_IDS      = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
 const CT_SLIDER_IDS  = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
 
@@ -1332,8 +1334,10 @@ function _ctRender(tabId) {
     projAuto:     (_ctEl(tabId,'proj-auto')    || {}).checked !== false,
     donorEnabled: (_ctEl(tabId,'donor-enabled')|| {}).checked !== false,
     projEnabled:  (_ctEl(tabId,'proj-enabled') || {}).checked !== false,
-    donorMaxW:    parseInt((_ctEl(tabId,'donor-maxw') || {}).value) || 1400,
-    projMaxW:     parseInt((_ctEl(tabId,'proj-maxw')  || {}).value) || 1400,
+    donorMaxW:    parseInt((_ctEl(tabId,'donor-maxw')  || {}).value) || 1400,
+    projMaxW:     parseInt((_ctEl(tabId,'proj-maxw')   || {}).value) || 1400,
+    donorColor:   (_ctEl(tabId,'donor-color') || {}).value || '#1e2f5a',
+    projColor:    (_ctEl(tabId,'proj-color')  || {}).value || '#ffffff',
   };
   drawCertTextDirect(ctx, donor, project, 'ct', settings);
 
@@ -1405,6 +1409,12 @@ function _buildCustomTabPanel(tab) {
           <span class="size-val" id="${p}donor-size-val">64</span>
         </div>
         <label class="auto-toggle"><input type="checkbox" id="${p}donor-auto" checked onchange="toggleAuto('ct-${id}','donor')"> حجم تلقائي</label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+        <div class="color-row">
+          <input type="color" id="${p}donor-color" value="#1e2f5a" oninput="_ctRender('${id}')">
+          <span class="color-val" id="${p}donor-color-val">#1e2f5a</span>
+          <button class="color-reset" onclick="document.getElementById('${p}donor-color').value='#1e2f5a';_ctRender('${id}')">↺</button>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
         <div class="font-control">
           <input type="range" id="${p}donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}donor-maxw-val').textContent=this.value;_ctRender('${id}')">
@@ -1432,6 +1442,12 @@ function _buildCustomTabPanel(tab) {
           <span class="size-val" id="${p}proj-size-val">72</span>
         </div>
         <label class="auto-toggle"><input type="checkbox" id="${p}proj-auto" checked onchange="toggleAuto('ct-${id}','proj')"> حجم تلقائي</label>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+        <div class="color-row">
+          <input type="color" id="${p}proj-color" value="#ffffff" oninput="_ctRender('${id}')">
+          <span class="color-val" id="${p}proj-color-val">#ffffff</span>
+          <button class="color-reset" onclick="document.getElementById('${p}proj-color').value='#ffffff';_ctRender('${id}')">↺</button>
+        </div>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
         <div class="font-control">
           <input type="range" id="${p}proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}proj-maxw-val').textContent=this.value;_ctRender('${id}')">
@@ -1656,6 +1672,8 @@ const STATE_FIELDS = [
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size',
   // max-width sliders
   'org-donor-maxw','org-proj-maxw','vk-donor-maxw','vk-proj-maxw',
+  // color pickers
+  'org-donor-color','org-proj-color','vk-donor-color','vk-proj-color',
   // Y sliders
   'ar-donor-y','ar-proj-y','en-donor-y','en-proj-y',
   'org-donor-y','org-proj-y','vk-donor-y','vk-proj-y',
@@ -1758,6 +1776,13 @@ document.addEventListener('DOMContentLoaded', () => {
   _hookStateSave();
   _hideVKPromptIfReady();
   loadCustomTabs();
+  // Sync color-val display on any color input change
+  document.addEventListener('input', e => {
+    if (e.target.type === 'color') {
+      const valEl = document.getElementById(e.target.id + '-val');
+      if (valEl) valEl.textContent = e.target.value;
+    }
+  });
 });
 
 // Close batch preview modal when clicking backdrop

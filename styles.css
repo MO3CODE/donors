@@ -475,6 +475,41 @@
     margin-bottom: 10px;
   }
 
+  /* Color picker row */
+  .color-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+  .color-row input[type=color] {
+    width: 36px;
+    height: 32px;
+    padding: 2px;
+    border-radius: 6px;
+    border: 1px solid rgba(200,164,90,0.4);
+    background: rgba(255,255,255,0.08);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .color-val {
+    font-size: 12px;
+    color: #9aaccc;
+    font-family: monospace;
+    flex: 1;
+  }
+  .color-reset {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #9aaccc;
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+  }
+  .color-reset:hover { background: rgba(200,164,90,0.15); color: #c8a45a; }
+
   /* History button */
   .hist-btn {
     background: rgba(200,164,90,0.12);
