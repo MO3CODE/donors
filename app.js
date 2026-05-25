@@ -1011,6 +1011,7 @@ function _buildTplButtons(entry) {
     { key: 'kayra',    label: 'KAYRA',               img: ORG_IMGS.kayra },
     { key: 'vk-ar',   label: '🇾🇪 القربان — عربي', img: VK_AR_IMG },
     { key: 'vk-tr',   label: '🇹🇷 القربان — تركي', img: VK_TR_IMG },
+    ...CUSTOM_TABS.filter(t => t.img).map(t => ({ key: 'ct-' + t.id, label: t.name, img: t.img })),
   ];
 
   const activeKey = entry.templateOverride ? entry.templateOverride.key : 'default';
