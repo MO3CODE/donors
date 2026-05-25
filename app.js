@@ -676,11 +676,11 @@ function getBatchCanvas(lang) {
   return c;
 }
 
-function drawOnCanvas(canvas, name, project, lang, img, settings) {
+function drawOnCanvas(canvas, name, project, lang, img, settings, forceImg) {
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, IMG_W, IMG_H);
-  // For vacip tab, pick template based on whether name is Arabic
-  const actualImg = (lang === 'vacip') ? (_getVKImg(name) || img) : img;
+  // forceImg = explicit override; otherwise vacip auto-picks by name language
+  const actualImg = forceImg || ((lang === 'vacip') ? (_getVKImg(name) || img) : img);
   if (!actualImg || !actualImg.naturalWidth) return;
   ctx.drawImage(actualImg, 0, 0, IMG_W, IMG_H);
   const l = lang === 'arabic' ? 'ar' : lang === 'english' ? 'en' : lang === 'vacip' ? 'vk' : 'org';
@@ -822,14 +822,14 @@ async function startBatch(lang) {
   openBatchPreviewGrid();
 }
 
-function _entryImg(entry) {
-  return (entry.templateOverride && entry.templateOverride.img) || _pendingBatch.img;
+function _entryForceImg(entry) {
+  return (entry.templateOverride && entry.templateOverride.img) || null;
 }
 
 function _renderThumb(entry) {
-  const { lang } = _pendingBatch;
+  const { lang, img } = _pendingBatch;
   const c = getBatchCanvas(lang);
-  drawOnCanvas(c, entry.name, entry.project, lang, _entryImg(entry), entry.settings);
+  drawOnCanvas(c, entry.name, entry.project, lang, img, entry.settings, _entryForceImg(entry));
   const thumb = document.createElement('canvas');
   thumb.width = THUMB_W; thumb.height = THUMB_H;
   thumb.getContext('2d').drawImage(c, 0, 0, THUMB_W, THUMB_H);
@@ -1079,7 +1079,7 @@ function refreshEditPreview() {
   _editVal('batch-edit-proj-size').style.opacity  = settings.projAuto  ? '0.4' : '1';
 
   const c = getBatchCanvas(lang);
-  drawOnCanvas(c, nameVal, projVal, lang, _entryImg(entry), settings);
+  drawOnCanvas(c, nameVal, projVal, lang, _pendingBatch.img, settings, _entryForceImg(entry));
 
   const wrap    = document.getElementById('batch-edit-canvas-wrap');
   const preview = document.getElementById('batch-edit-canvas-preview');
@@ -1157,7 +1157,7 @@ async function confirmBatchDownload() {
       await new Promise(r => setTimeout(r, 10));
 
       const c = getBatchCanvas(lang);
-      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _entryImg(entries[i]), entries[i].settings);
+      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _pendingBatch.img, entries[i].settings, _entryForceImg(entries[i]));
       jpegDataList.push({ data: canvasToJpegBase64(c), w: IMG_W, h: IMG_H });
     }
 
@@ -1184,7 +1184,7 @@ async function confirmBatchDownload() {
       await new Promise(r => setTimeout(r, 50));
 
       const c = getBatchCanvas(lang);
-      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _entryImg(entries[i]), entries[i].settings);
+      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _pendingBatch.img, entries[i].settings, _entryForceImg(entries[i]));
 
       await new Promise(resolve => {
         c.toBlob(blob => {
