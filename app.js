@@ -190,7 +190,14 @@ function loadVertTemplate(input) {
 function updateVertTemplatesList() {
   const grid = document.getElementById('vt-templates-grid');
   const listDiv = document.getElementById('vt-templates-list');
-  if (!grid || !VERT_IMG_LIST.length) { if (listDiv) listDiv.style.display = 'none'; return; }
+  if (!grid || !VERT_IMG_LIST.length) {
+    if (listDiv) listDiv.style.display = 'none';
+    const wrapper = document.getElementById('vt-canvas-wrapper');
+    const prompt = document.getElementById('vt-upload-prompt');
+    if (wrapper) wrapper.style.display = 'none';
+    if (prompt) prompt.style.display = 'flex';
+    return;
+  }
   listDiv.style.display = 'block';
   grid.innerHTML = '';
   VERT_IMG_LIST.forEach(function(img, idx) {
@@ -519,8 +526,8 @@ function downloadCert(lang, format) {
   // Save to history before downloading
   try {
     const tabId  = lang.startsWith('ct-') ? lang.slice(3) : lang;
-    const isOrgs = lang === 'orgs', isVK = lang === 'vacip', isCT = lang.startsWith('ct-');
-    const prefix = isOrgs ? 'org' : isVK ? 'vk' : null;
+    const isOrgs = lang === 'orgs', isVK = lang === 'vacip', isVert = lang === 'vert', isCT = lang.startsWith('ct-');
+    const prefix = isOrgs ? 'org' : isVK ? 'vk' : isVert ? 'vt' : null;
     const pid    = f => isCT ? 'ct-' + tabId + '-' + f : prefix + '-' + f;
     const gv     = id => { const el = document.getElementById(id); return el ? el.value : ''; };
     const gb     = id => { const el = document.getElementById(id); return el ? el.checked : true; };
@@ -705,6 +712,8 @@ function shareWhatsapp(lang) {
   const canvasId = lang === 'english' ? 'canvas-english' :
                    lang === 'orgs'    ? 'canvas-orgs-offscreen' :
                    lang === 'vacip'   ? 'canvas-vacip' :
+                   lang === 'vert'    ? 'canvas-vert' :
+                   lang.startsWith('ct-') ? 'canvas-' + lang :
                                         'canvas-arabic';
   const canvas = document.getElementById(canvasId);
   const name = getFileName(lang);
@@ -864,7 +873,6 @@ function canvasToJpegBase64(canvas) {
 let _pendingBatch = null;  // { lang, prefix, entries:[{name,project}], img }
 let _editingIndex = null;
 const THUMB_W = 480;
-const THUMB_H = Math.round(IMG_H * (480 / IMG_W));
 
 async function startBatch(lang) {
   // Custom tab support
@@ -901,12 +909,13 @@ async function startBatch(lang) {
   const namesRaw = document.getElementById(`${prefix}-batch-names`).value.trim();
   if (!namesRaw) { alert('أدخل أسماء أولاً'); return; }
 
-  const projectEl = document.getElementById(lang === 'arabic' ? 'ar-project' : lang === 'english' ? 'en-project' : lang === 'vacip' ? 'vk-project' : 'org-project');
+  const projectEl = document.getElementById(lang === 'arabic' ? 'ar-project' : lang === 'english' ? 'en-project' : lang === 'vacip' ? 'vk-project' : lang === 'vert' ? 'vt-project' : 'org-project');
   const defaultProject = projectEl.value || 'اسم المشروع';
 
   const img = lang === 'arabic' ? AR_IMG :
               lang === 'english' ? EN_IMG :
               lang === 'vacip'   ? (VK_TR_IMG || VK_AR_IMG) :
+              lang === 'vert'    ? VERT_IMG_LIST[VERT_ACTIVE_IDX] :
               ORG_IMG;
   if (lang === 'vacip' && !VK_TR_IMG && !VK_AR_IMG) { alert('يجب رفع قالب واحد على الأقل أولاً'); return; }
   if (lang !== 'vacip' && (!img || !img.naturalWidth)) { alert('يجب رفع القالب أولاً'); return; }
@@ -929,8 +938,9 @@ function _renderThumb(entry) {
   const c = getBatchCanvas(lang);
   drawOnCanvas(c, entry.name, entry.project, lang, img, entry.settings, _entryForceImg(entry));
   const thumb = document.createElement('canvas');
-  thumb.width = THUMB_W; thumb.height = THUMB_H;
-  thumb.getContext('2d').drawImage(c, 0, 0, THUMB_W, THUMB_H);
+  const thumbH = Math.round(c.height * (THUMB_W / c.width));
+  thumb.width = THUMB_W; thumb.height = thumbH;
+  thumb.getContext('2d').drawImage(c, 0, 0, THUMB_W, thumbH);
   return thumb.toDataURL('image/jpeg', 0.75);
 }
 
@@ -1106,7 +1116,10 @@ function _buildTplButtons(entry) {
   if (!wrap) return;
   wrap.innerHTML = '';
 
-  const TEMPLATES = [
+  const TEMPLATES = _pendingBatch.lang === 'vert' ? [
+    { key: 'default', label: 'Default', img: null },
+    ...VERT_IMG_LIST.map((img, idx) => ({ key: 'vert-' + idx, label: '3:4 #' + (idx + 1), img })),
+  ] : [
     { key: 'default',  label: '↩ افتراضي',         img: null },
     { key: 'stk',      label: 'STK',                img: ORG_IMGS.stk },
     { key: 'ummetin',  label: 'ÜMMETİN ABİSİ',     img: ORG_IMGS.ummetin },
@@ -1190,12 +1203,14 @@ function refreshEditPreview() {
 
   // clientWidth can be 0 if DOM not yet painted — fall back to window width minus panel
   const availW = wrap.clientWidth > 10 ? wrap.clientWidth : (window.innerWidth - 340);
-  const scale  = Math.min(1, (availW - 16) / IMG_W);
-  const dispH  = Math.round(IMG_H * scale);
+  const scale  = Math.min(1, (availW - 16) / c.width);
+  const dispH  = Math.round(c.height * scale);
 
   wrap.style.height             = dispH + 'px';
   preview.style.transform       = `scale(${scale})`;
   preview.style.transformOrigin = 'top left';
+  preview.width                 = c.width;
+  preview.height                = c.height;
   preview.getContext('2d').drawImage(c, 0, 0);
 }
 
@@ -1262,7 +1277,7 @@ async function confirmBatchDownload() {
 
       const c = getBatchCanvas(lang);
       drawOnCanvas(c, entries[i].name, entries[i].project, lang, img, entries[i].settings, _entryForceImg(entries[i]));
-      jpegDataList.push({ data: canvasToJpegBase64(c), w: IMG_W, h: IMG_H });
+      jpegDataList.push({ data: canvasToJpegBase64(c), w: c.width, h: c.height });
     }
 
     barEl.style.width = '90%';
@@ -1813,33 +1828,33 @@ const STATE_KEY = 'donor_cert_state_v1';
 
 const STATE_FIELDS = [
   // text fields
-  'ar-donor','ar-project','en-donor','en-project','org-donor','org-project','vk-donor','vk-project',
+  'ar-donor','ar-project','en-donor','en-project','org-donor','org-project','vk-donor','vk-project','vt-donor','vt-project',
   // batch textarea
-  'ar-batch-names','en-batch-names','org-batch-names','vk-batch-names',
+  'ar-batch-names','en-batch-names','org-batch-names','vk-batch-names','vt-batch-names',
   // font selects
   'ar-donor-font','ar-proj-font','en-donor-font','en-proj-font',
   'org-donor-font','org-proj-font','vk-donor-font','vk-proj-font','vt-donor-font','vt-proj-font',
   // size sliders
   'ar-donor-size','ar-proj-size','en-donor-size','en-proj-size',
-  'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size',
+  'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size','vt-donor-size','vt-proj-size',
   // max-width sliders
-  'org-donor-maxw','org-proj-maxw','vk-donor-maxw','vk-proj-maxw',
-  'org-donor-lineh','vk-donor-lineh',
+  'org-donor-maxw','org-proj-maxw','vk-donor-maxw','vk-proj-maxw','vt-donor-maxw','vt-proj-maxw',
+  'org-donor-lineh','vk-donor-lineh','vt-donor-lineh',
   // color pickers
-  'org-donor-color','org-proj-color','vk-donor-color','vk-proj-color',
+  'org-donor-color','org-proj-color','vk-donor-color','vk-proj-color','vt-donor-color','vt-proj-color',
   // Y sliders
   'ar-donor-y','ar-proj-y','en-donor-y','en-proj-y',
-  'org-donor-y','org-proj-y','vk-donor-y','vk-proj-y',
+  'org-donor-y','org-proj-y','vk-donor-y','vk-proj-y','vt-donor-y','vt-proj-y',
   // X sliders
   'ar-donor-x','ar-proj-x','en-donor-x','en-proj-x',
-  'org-donor-x','org-proj-x','vk-donor-x','vk-proj-x',
+  'org-donor-x','org-proj-x','vk-donor-x','vk-proj-x','vt-donor-x','vt-proj-x',
 ];
 
 const STATE_CHECKBOXES = [
   'ar-donor-enabled','ar-proj-enabled','en-donor-enabled','en-proj-enabled',
-  'org-donor-enabled','org-proj-enabled','vk-donor-enabled','vk-proj-enabled',
+  'org-donor-enabled','org-proj-enabled','vk-donor-enabled','vk-proj-enabled','vt-donor-enabled','vt-proj-enabled',
   'ar-donor-auto','ar-proj-auto','en-donor-auto','en-proj-auto',
-  'org-donor-auto','org-proj-auto','vk-donor-auto','vk-proj-auto',
+  'org-donor-auto','org-proj-auto','vk-donor-auto','vk-proj-auto','vt-donor-auto','vt-proj-auto',
 ];
 
 function saveState() {
@@ -1961,6 +1976,7 @@ function _histSave() {
 function _histTabLabel(tabId) {
   if (tabId === 'orgs')  return '🏢 الجهات';
   if (tabId === 'vacip') return '🐑 الأضاحي';
+  if (tabId === 'vert')  return '📐 قياس 3:4';
   const ct = CUSTOM_TABS.find(t => t.id === tabId);
   return ct ? '📋 ' + ct.name : tabId;
 }
@@ -2004,13 +2020,14 @@ function histRestoreSingle(entry) {
   const lang   = tabId;
   const isOrgs = tabId === 'orgs';
   const isVK   = tabId === 'vacip';
-  const isCT   = !isOrgs && !isVK;
+  const isVert = tabId === 'vert';
+  const isCT   = !isOrgs && !isVK && !isVert;
 
   // Switch to the correct tab
   const btn = document.getElementById('tabBtn-' + tabId);
   if (btn) switchTab(tabId, btn);
 
-  const prefix = isOrgs ? 'org' : isVK ? 'vk' : 'ct-' + tabId + '-';
+  const prefix = isOrgs ? 'org' : isVK ? 'vk' : isVert ? 'vt' : 'ct-' + tabId + '-';
   const pid    = id => isCT ? 'ct-' + tabId + '-' + id : prefix + '-' + id;
 
   const setVal = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; } };
@@ -2040,6 +2057,7 @@ function histRestoreSingle(entry) {
   setTimeout(() => {
     if (isOrgs)  renderOrgs();
     else if (isVK) renderVacip();
+    else if (isVert) renderVert();
     else           _ctRender(tabId);
   }, 80);
 }
@@ -2055,13 +2073,14 @@ function histRestoreBatch(entry) {
   let img = null;
   if (tabId === 'orgs')  img = ORG_IMG;
   else if (tabId === 'vacip') img = VK_TR_IMG || VK_AR_IMG;
+  else if (tabId === 'vert') img = VERT_IMG_LIST[VERT_ACTIVE_IDX];
   else { const ct = CUSTOM_TABS.find(t => t.id === tabId); img = ct ? ct.img : null; }
 
   if (!img || !img.naturalWidth) {
     alert('القالب غير محمّل، يرجى رفع القالب أولاً ثم استعادة السجل'); return;
   }
 
-  const prefix = tabId === 'orgs' ? 'org' : tabId === 'vacip' ? 'vk' : 'ct-' + tabId;
+  const prefix = tabId === 'orgs' ? 'org' : tabId === 'vacip' ? 'vk' : tabId === 'vert' ? 'vt' : 'ct-' + tabId;
   _pendingBatch = { lang: entry.lang || tabId, prefix, entries: JSON.parse(JSON.stringify(entry.entries)), img };
   openBatchPreviewGrid();
 }
@@ -2164,4 +2183,3 @@ document.addEventListener('DOMContentLoaded', () => {
   _histLoad();
   _buildHistoryModal();
 });
-
