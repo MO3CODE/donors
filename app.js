@@ -1152,10 +1152,10 @@ function closeBatchPreview() {
 
 async function confirmBatchDownload() {
   if (!_pendingBatch) return;
-  const { lang, prefix, entries } = _pendingBatch;
+  const { lang, prefix, entries, img } = _pendingBatch;
   // Save full batch (with per-card edits) to history
   try { histSaveBatch(lang, entries); } catch(e) {}
-  closeBatchPreview();
+  closeBatchPreview(); // sets _pendingBatch = null — use local vars below
 
   const mode = batchOpts[prefix];
   const progressEl = document.getElementById(`${prefix}-batch-progress`);
@@ -1173,7 +1173,7 @@ async function confirmBatchDownload() {
       await new Promise(r => setTimeout(r, 10));
 
       const c = getBatchCanvas(lang);
-      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _pendingBatch.img, entries[i].settings, _entryForceImg(entries[i]));
+      drawOnCanvas(c, entries[i].name, entries[i].project, lang, img, entries[i].settings, _entryForceImg(entries[i]));
       jpegDataList.push({ data: canvasToJpegBase64(c), w: IMG_W, h: IMG_H });
     }
 
@@ -1200,7 +1200,7 @@ async function confirmBatchDownload() {
       await new Promise(r => setTimeout(r, 50));
 
       const c = getBatchCanvas(lang);
-      drawOnCanvas(c, entries[i].name, entries[i].project, lang, _pendingBatch.img, entries[i].settings, _entryForceImg(entries[i]));
+      drawOnCanvas(c, entries[i].name, entries[i].project, lang, img, entries[i].settings, _entryForceImg(entries[i]));
 
       await new Promise(resolve => {
         c.toBlob(blob => {
