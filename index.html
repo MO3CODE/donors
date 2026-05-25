@@ -76,6 +76,17 @@
           </div>
         </div>
 
+        <div id="org-slot-kayra" class="org-slot-btn" onclick="selectOrgSlot('kayra')">
+          <input type="file" id="org-upload-kayra" accept="image/*" style="display:none" onchange="loadOrgTemplate(this,'kayra')" onclick="event.stopPropagation()">
+          <div style="flex:1">
+            <div style="color:#e8e8e8;font-size:13px;font-weight:700;">KAYRA</div>
+            <div style="color:#9aaccc;font-size:11px;margin-top:2px;">Kayra Hilfsorganisation</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="org-slot-status" id="org-status-kayra">✓</span>
+          </div>
+        </div>
+
         <div id="org-slot-custom" class="org-slot-btn org-slot-active" onclick="selectOrgSlot('custom')">
           <input type="file" id="org-upload-custom" accept="image/*" style="display:none" onchange="loadOrgTemplate(this,'custom')" onclick="event.stopPropagation()">
           <div style="flex:1">
