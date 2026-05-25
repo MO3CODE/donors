@@ -112,6 +112,11 @@ function getDirection(lang, field, text) {
   return _resolveTextDirection(el ? el.value : 'rtl', text);
 }
 
+function getAlignment(lang, field) {
+  const el = document.getElementById(`${lang}-${field}-align`);
+  return el ? el.value : 'center';
+}
+
 function drawCertText(ctx, donorText, projectText, lang) {
   ctx.textBaseline = "middle";
 
@@ -131,7 +136,7 @@ function drawCertText(ctx, donorText, projectText, lang) {
     ctx.font = `bold ${projSize}px "${projFont}", serif`;
     ctx.fillStyle = "#FFFFFF";
     ctx.direction = getDirection(lang, "proj", projText);
-    ctx.textAlign = "center";
+    ctx.textAlign = getAlignment(lang, "proj");
     ctx.fillText(projText, projX, projY);
   }
 
@@ -144,7 +149,7 @@ function drawCertText(ctx, donorText, projectText, lang) {
     const donorSize = getSize(lang, "donor", ctx, longestLine, USABLE_W * 0.8, 64, 22, donorFont);
     ctx.font = `bold ${donorSize}px "${donorFont}", serif`;
     ctx.fillStyle = "#1e2f5a";
-    ctx.textAlign = "center";
+    ctx.textAlign = getAlignment(lang, "donor");
     const startY = donorY - ((totalLines - 1) * lineSpacing) / 2;
     donorLines.forEach((line, i) => {
       ctx.direction = getDirection(lang, "donor", line);
@@ -341,7 +346,7 @@ Object.defineProperty(window, 'ORG_IMG', {
 // Per-slot field IDs to snapshot when switching
 const ORG_SLOT_FIELD_IDS = [
   'org-donor','org-project','org-batch-names','org-batch-group-size',
-  'org-donor-font','org-proj-font','org-donor-dir','org-proj-dir',
+  'org-donor-font','org-proj-font','org-donor-dir','org-proj-dir','org-donor-align','org-proj-align',
   'org-donor-size','org-proj-size',
   'org-donor-y','org-proj-y',
   'org-donor-x','org-proj-x',
@@ -356,6 +361,7 @@ const ORG_SLOT_DEFAULTS = {
   'org-donor': '', 'org-project': '', 'org-batch-names': '', 'org-batch-group-size': '1',
   'org-donor-font': 'Amiri', 'org-proj-font': 'Amiri',
   'org-donor-dir': 'rtl', 'org-proj-dir': 'rtl',
+  'org-donor-align': 'center', 'org-proj-align': 'center',
   'org-donor-size': '64', 'org-proj-size': '72',
   'org-donor-y': '590', 'org-proj-y': '842',
   'org-donor-x': '877', 'org-proj-x': '877',
@@ -552,6 +558,7 @@ function downloadCert(lang, format) {
         donorX: parseInt(gv(pid('donor-x'))), projX: parseInt(gv(pid('proj-x'))),
         donorMaxW: parseInt(gv(pid('donor-maxw'))||1400), projMaxW: parseInt(gv(pid('proj-maxw'))||1400),
         donorDir: gv(pid('donor-dir')) || 'rtl', projDir: gv(pid('proj-dir')) || 'rtl',
+        donorAlign: gv(pid('donor-align')) || 'center', projAlign: gv(pid('proj-align')) || 'center',
         donorAuto: gb(pid('donor-auto')), projAuto: gb(pid('proj-auto')),
         donorEnabled: gb(pid('donor-enabled')), projEnabled: gb(pid('proj-enabled')),
       };
@@ -828,6 +835,8 @@ function _resolveSettings(lang, s) {
     projColor    : s?.projColor    ?? ((g(`${lang}-proj-color`)  || {}).value || '#ffffff'),
     donorDir     : s?.donorDir     ?? ((g(`${lang}-donor-dir`) || {}).value || 'rtl'),
     projDir      : s?.projDir      ?? ((g(`${lang}-proj-dir`)  || {}).value || 'rtl'),
+    donorAlign   : s?.donorAlign   ?? ((g(`${lang}-donor-align`) || {}).value || 'center'),
+    projAlign    : s?.projAlign    ?? ((g(`${lang}-proj-align`)  || {}).value || 'center'),
     donorLineH   : s?.donorLineH   ?? gv(`${lang}-donor-lineh`, 0),
   };
 }
@@ -857,7 +866,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     ctx.font = `bold ${projSize}px "${s.projFont}", serif`;
     ctx.fillStyle = s.projColor || '#ffffff';
     ctx.direction = _resolveTextDirection(s.projDir, projText2);
-    ctx.textAlign = 'center';
+    ctx.textAlign = s.projAlign || 'center';
     ctx.fillText(projText2, s.projX, s.projY);
   }
 
@@ -871,7 +880,7 @@ function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
     const donorSize   = _calcSize(ctx, longestLine, s.donorMaxW ?? USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
     ctx.font = `bold ${donorSize}px "${s.donorFont}", serif`;
     ctx.fillStyle = s.donorColor || '#1e2f5a';
-    ctx.textAlign = 'center';
+    ctx.textAlign = s.donorAlign || 'center';
     const startY = s.donorY - ((totalLines - 1) * lineSpacing) / 2;
     donorLines.forEach((line, i) => {
       ctx.direction = _resolveTextDirection(s.donorDir, line);
@@ -920,6 +929,8 @@ async function startBatch(lang) {
       projFont:  (document.getElementById(p+'proj-font') ||{}).value||'Amiri',
       donorDir:  (document.getElementById(p+'donor-dir') ||{}).value||'rtl',
       projDir:   (document.getElementById(p+'proj-dir')  ||{}).value||'rtl',
+      donorAlign:(document.getElementById(p+'donor-align')||{}).value||'center',
+      projAlign: (document.getElementById(p+'proj-align') ||{}).value||'center',
       donorSize: parseInt((document.getElementById(p+'donor-size')||{}).value)||64,
       projSize:  parseInt((document.getElementById(p+'proj-size') ||{}).value)||72,
       donorY:    parseInt((document.getElementById(p+'donor-y')   ||{}).value)||590,
@@ -1109,6 +1120,8 @@ function openCardEditor(index) {
   _setSelect('batch-edit-proj-font',  s.projFont);
   _setSelect('batch-edit-donor-dir',  s.donorDir || 'rtl');
   _setSelect('batch-edit-proj-dir',   s.projDir || 'rtl');
+  _setSelect('batch-edit-donor-align', s.donorAlign || 'center');
+  _setSelect('batch-edit-proj-align',  s.projAlign || 'center');
 
   // Sizes
   _setRange('batch-edit-donor-size', 'batch-edit-donor-size-val', s.donorSize);
@@ -1205,6 +1218,8 @@ function _readEditSettings() {
     projFont     : _editVal('batch-edit-proj-font').value,
     donorDir     : _editVal('batch-edit-donor-dir').value,
     projDir      : _editVal('batch-edit-proj-dir').value,
+    donorAlign   : _editVal('batch-edit-donor-align').value,
+    projAlign    : _editVal('batch-edit-proj-align').value,
     donorSize    : parseInt(_editVal('batch-edit-donor-size').value),
     projSize     : parseInt(_editVal('batch-edit-proj-size').value),
     donorAuto,
@@ -1451,7 +1466,7 @@ const CT_STATE_KEY = 'donor_cert_custom_tabs_v1';
 let CUSTOM_TABS = [];   // [{ id, name, templateDataUrl }]
 let _ctCounter  = 0;
 
-const CT_FIELD_IDS   = ['donor','project','batch-names','batch-group-size','donor-font','proj-font','donor-dir','proj-dir','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
+const CT_FIELD_IDS   = ['donor','project','batch-names','batch-group-size','donor-font','proj-font','donor-dir','proj-dir','donor-align','proj-align','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
 const CT_CB_IDS      = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
 const CT_SLIDER_IDS  = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
 
@@ -1522,6 +1537,8 @@ function _ctRender(tabId) {
     projFont:     (_ctEl(tabId,'proj-font')    || {}).value || 'Amiri',
     donorDir:     (_ctEl(tabId,'donor-dir')    || {}).value || 'rtl',
     projDir:      (_ctEl(tabId,'proj-dir')     || {}).value || 'rtl',
+    donorAlign:   (_ctEl(tabId,'donor-align')  || {}).value || 'center',
+    projAlign:    (_ctEl(tabId,'proj-align')   || {}).value || 'center',
     donorSize:    parseInt((_ctEl(tabId,'donor-size') || {}).value) || 64,
     projSize:     parseInt((_ctEl(tabId,'proj-size')  || {}).value) || 72,
     donorY:       parseInt((_ctEl(tabId,'donor-y')    || {}).value) || 590,
@@ -1598,11 +1615,19 @@ function _buildCustomTabPanel(tab) {
         <select id="${p}donor-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
         </select>
+        <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
+        <select id="${p}donor-align" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="${p}proj-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
         <select id="${p}proj-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+        <select id="${p}proj-align" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
         </select>
       </div>
     </div>
@@ -1887,6 +1912,8 @@ const STATE_FIELDS = [
   'org-donor-font','org-proj-font','vk-donor-font','vk-proj-font','vt-donor-font','vt-proj-font',
   // direction selects
   'org-donor-dir','org-proj-dir','vk-donor-dir','vk-proj-dir','vt-donor-dir','vt-proj-dir',
+  // alignment selects
+  'org-donor-align','org-proj-align','vk-donor-align','vk-proj-align','vt-donor-align','vt-proj-align',
   // size sliders
   'ar-donor-size','ar-proj-size','en-donor-size','en-proj-size',
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size','vt-donor-size','vt-proj-size',
@@ -2095,6 +2122,8 @@ function histRestoreSingle(entry) {
   if (s.projFont)     setVal(pid('proj-font'),     s.projFont);
   if (s.donorDir)     setVal(pid('donor-dir'),     s.donorDir);
   if (s.projDir)      setVal(pid('proj-dir'),      s.projDir);
+  if (s.donorAlign)   setVal(pid('donor-align'),   s.donorAlign);
+  if (s.projAlign)    setVal(pid('proj-align'),    s.projAlign);
   if (s.donorSize)  { setVal(pid('donor-size'),    s.donorSize);  setDisp(pid('donor-size'),  s.donorSize); }
   if (s.projSize)   { setVal(pid('proj-size'),     s.projSize);   setDisp(pid('proj-size'),   s.projSize); }
   if (s.donorY)     { setVal(pid('donor-y'),       s.donorY);     setDisp(pid('donor-y'),     s.donorY); }

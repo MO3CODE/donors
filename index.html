@@ -124,11 +124,19 @@
         <select id="org-donor-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
         </select>
+        <label style="font-size:12px;color:#9aaccc">محاذاة اسم الجهة</label>
+        <select id="org-donor-align" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="org-proj-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
         <select id="org-proj-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+        <select id="org-proj-align" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
         </select>
       </div>
     </div>
@@ -294,11 +302,19 @@
         <select id="vt-donor-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
         </select>
+        <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
+        <select id="vt-donor-align" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="vt-proj-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
         <select id="vt-proj-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+        <select id="vt-proj-align" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
         </select>
       </div>
     </div>
@@ -457,11 +473,19 @@
         <select id="vk-donor-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
         </select>
+        <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
+        <select id="vk-donor-align" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+        </select>
         <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
         <select id="vk-proj-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
         <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
         <select id="vk-proj-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
           <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+        </select>
+        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+        <select id="vk-proj-align" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
         </select>
       </div>
     </div>
@@ -692,6 +716,12 @@
             </select>
           </div>
           <div class="ep-field">
+            <label class="ep-label">محاذاة النص</label>
+            <select id="batch-edit-donor-align" onchange="refreshEditPreview()" class="ep-select">
+              <option value="center">وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+            </select>
+          </div>
+          <div class="ep-field">
             <label class="ep-label">
               الحجم
               <label class="ep-auto-toggle">
@@ -741,6 +771,12 @@
             <label class="ep-label">اتجاه النص</label>
             <select id="batch-edit-proj-dir" onchange="refreshEditPreview()" class="ep-select">
               <option value="rtl">يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+            </select>
+          </div>
+          <div class="ep-field">
+            <label class="ep-label">محاذاة النص</label>
+            <select id="batch-edit-proj-align" onchange="refreshEditPreview()" class="ep-select">
+              <option value="center">وسط</option><option value="right">يمين</option><option value="left">يسار</option>
             </select>
           </div>
           <div class="ep-field">
