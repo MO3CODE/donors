@@ -20,8 +20,18 @@ VK_TR_IMG_STATIC.onload = function() {
   _hideVKPromptIfReady();
 };
 
+// ── Org slot images ───────────────────────────────────────────────────────────
+const ORG_IMGS = { stk: null, ummetin: null, kayra: null, custom: null };
+let ORG_ACTIVE_SLOT = 'custom';
 
+const ORG_STK_IMG_STATIC = new Image();
+ORG_STK_IMG_STATIC.src = '/STK.jpg';
 
+const ORG_UMMETIN_IMG_STATIC = new Image();
+ORG_UMMETIN_IMG_STATIC.src = '/UMMETIN.jpg';
+
+const ORG_KAYRA_IMG_STATIC = new Image();
+ORG_KAYRA_IMG_STATIC.src = '/KAYRA.jpg';
 
 
 function _hideVKPromptIfReady() {
@@ -31,7 +41,9 @@ function _hideVKPromptIfReady() {
     _updateVKStatus();
   }
 }
-ORG_STK_IMG_STATIC.onload = function() { ORG_IMGS.stk = ORG_STK_IMG_STATIC; var b = document.getElementById("org-status-stk"); if(b) b.textContent = "✓"; };
+ORG_STK_IMG_STATIC.onload = function() { ORG_IMGS.stk = ORG_STK_IMG_STATIC; var b = document.getElementById('org-status-stk'); if(b) b.textContent = '✓'; };
+ORG_UMMETIN_IMG_STATIC.onload = function() { ORG_IMGS.ummetin = ORG_UMMETIN_IMG_STATIC; var b = document.getElementById('org-status-ummetin'); if(b) b.textContent = '✓'; };
+ORG_KAYRA_IMG_STATIC.onload = function() { ORG_IMGS.kayra = ORG_KAYRA_IMG_STATIC; var b = document.getElementById('org-status-kayra'); if(b) b.textContent = '✓'; };
 
 
 
@@ -695,8 +707,8 @@ function _resolveSettings(lang, s) {
     projEnabled  : s?.projEnabled  ?? enabledEl(`${lang}-proj-enabled`),
     donorMaxW    : s?.donorMaxW    ?? gv(`${lang}-donor-maxw`, 1400),
     projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  1400),
-    donorColor   : s?.donorColor   ?? (g(`${lang}-donor-color`) || {}).value || '#1e2f5a',
-    projColor    : s?.projColor    ?? (g(`${lang}-proj-color`)  || {}).value || '#ffffff',
+    donorColor   : s?.donorColor   ?? ((g(`${lang}-donor-color`) || {}).value || '#1e2f5a'),
+    projColor    : s?.projColor    ?? ((g(`${lang}-proj-color`)  || {}).value || '#ffffff'),
   };
 }
 
