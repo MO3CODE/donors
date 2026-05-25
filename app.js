@@ -57,10 +57,86 @@ const VERT_W = 1240;
 const VERT_H = 1653;
 let VERT_IMG_LIST = [];
 let VERT_ACTIVE_IDX = 0;
+const VERT_DB_NAME = 'donor_cert_templates_db';
+const VERT_DB_STORE = 'vert_templates';
+const VERT_DB_KEY = 'templates_v1';
 const IMG_H = 1241;
 const LEFT_MARGIN  = 120;
 const RIGHT_MARGIN = 120;
 const USABLE_W = IMG_W - LEFT_MARGIN - RIGHT_MARGIN;
+
+function _getActiveVertTemplate() {
+  return VERT_IMG_LIST.length > 0 ? VERT_IMG_LIST[VERT_ACTIVE_IDX] : null;
+}
+
+function _getVertTemplateName(fileName) {
+  const name = (fileName || '').replace(/(?:\.(?:png|jpe?g|webp|gif|bmp))+$/i, '').trim();
+  return name || 'template';
+}
+
+function _openVertTemplateDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(VERT_DB_NAME, 1);
+    request.onupgradeneeded = function() {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(VERT_DB_STORE)) db.createObjectStore(VERT_DB_STORE);
+    };
+    request.onsuccess = function() { resolve(request.result); };
+    request.onerror = function() { reject(request.error); };
+  });
+}
+
+async function saveVertTemplates() {
+  if (!window.indexedDB) return;
+  try {
+    const db = await _openVertTemplateDB();
+    const stored = {
+      activeIdx: VERT_ACTIVE_IDX,
+      templates: VERT_IMG_LIST.map(template => ({
+        name: template.name,
+        dataUrl: template.dataUrl,
+      })),
+    };
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(VERT_DB_STORE, 'readwrite');
+      tx.objectStore(VERT_DB_STORE).put(stored, VERT_DB_KEY);
+      tx.oncomplete = resolve;
+      tx.onerror = function() { reject(tx.error); };
+    });
+    db.close();
+  } catch (error) {
+    console.warn('Could not save 3:4 templates.', error);
+  }
+}
+
+async function loadVertTemplates() {
+  if (!window.indexedDB) return;
+  try {
+    const db = await _openVertTemplateDB();
+    const stored = await new Promise((resolve, reject) => {
+      const tx = db.transaction(VERT_DB_STORE, 'readonly');
+      const request = tx.objectStore(VERT_DB_STORE).get(VERT_DB_KEY);
+      request.onsuccess = function() { resolve(request.result); };
+      request.onerror = function() { reject(request.error); };
+    });
+    db.close();
+    if (!stored || !Array.isArray(stored.templates) || !stored.templates.length) return;
+    const templates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
+      const img = new Image();
+      img.onload = function() {
+        resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl });
+      };
+      img.onerror = function() { resolve(null); };
+      img.src = template.dataUrl;
+    })));
+    VERT_IMG_LIST = templates.filter(Boolean);
+    VERT_ACTIVE_IDX = Math.min(Number(stored.activeIdx) || 0, Math.max(0, VERT_IMG_LIST.length - 1));
+    updateVertTemplatesList();
+    if (VERT_IMG_LIST.length > 0) renderVert();
+  } catch (error) {
+    console.warn('Could not restore 3:4 templates.', error);
+  }
+}
 
 function toggleAuto(lang, field) {
   const autoId = `${lang}-${field}-auto`;
@@ -160,7 +236,8 @@ function drawCertText(ctx, donorText, projectText, lang) {
 
 
 function renderVert() {
-  const img = VERT_IMG_LIST.length > 0 ? VERT_IMG_LIST[VERT_ACTIVE_IDX] : null;
+  const template = _getActiveVertTemplate();
+  const img = template ? template.img : null;
   if (!img || !img.complete || !img.naturalWidth) {
     document.getElementById('vt-status').textContent = '⚠ ارفع قالباً أولاً';
     return;
@@ -187,12 +264,25 @@ function loadVertTemplate(input) {
     reader.onload = function(e) {
       const img = new Image();
       img.onload = function() {
-        VERT_IMG_LIST.push(img);
+        VERT_IMG_LIST.push({
+          img,
+          name: _getVertTemplateName(file.name),
+          dataUrl: e.target.result,
+        });
         loaded++;
         if (loaded === files.length) {
           VERT_ACTIVE_IDX = VERT_IMG_LIST.length - 1;
           updateVertTemplatesList();
           renderVert();
+          saveVertTemplates();
+        }
+      };
+      img.onerror = function() {
+        loaded++;
+        if (loaded === files.length) {
+          updateVertTemplatesList();
+          if (VERT_IMG_LIST.length > 0) renderVert();
+          saveVertTemplates();
         }
       };
       img.src = e.target.result;
@@ -215,16 +305,17 @@ function updateVertTemplatesList() {
   }
   listDiv.style.display = 'block';
   grid.innerHTML = '';
-  VERT_IMG_LIST.forEach(function(img, idx) {
+  VERT_IMG_LIST.forEach(function(template, idx) {
     const thumb = document.createElement('div');
     thumb.style.cssText = 'position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid ' + (idx === VERT_ACTIVE_IDX ? '#c8a45a' : 'rgba(200,164,90,0.3)') + ';width:55px;height:73px;flex-shrink:0;';
+    thumb.title = template.name;
     const cv = document.createElement('canvas');
     cv.width = 55; cv.height = 73;
-    cv.getContext('2d').drawImage(img, 0, 0, 55, 73);
+    cv.getContext('2d').drawImage(template.img, 0, 0, 55, 73);
     thumb.appendChild(cv);
     const lbl = document.createElement('div');
-    lbl.textContent = (idx + 1);
-    lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#f0d98a;font-size:10px;text-align:center;padding:2px;font-family:Cairo,sans-serif;';
+    lbl.textContent = template.name;
+    lbl.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.55);color:#f0d98a;font-size:10px;text-align:center;padding:2px;font-family:Cairo,sans-serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
     thumb.appendChild(lbl);
     const del = document.createElement('div');
     del.textContent = '✕';
@@ -235,9 +326,10 @@ function updateVertTemplatesList() {
       if (VERT_ACTIVE_IDX >= VERT_IMG_LIST.length) VERT_ACTIVE_IDX = Math.max(0, VERT_IMG_LIST.length - 1);
       updateVertTemplatesList();
       if (VERT_IMG_LIST.length > 0) renderVert();
+      saveVertTemplates();
     };
     thumb.appendChild(del);
-    thumb.onclick = function() { VERT_ACTIVE_IDX = idx; updateVertTemplatesList(); renderVert(); };
+    thumb.onclick = function() { VERT_ACTIVE_IDX = idx; updateVertTemplatesList(); renderVert(); saveVertTemplates(); };
     grid.appendChild(thumb);
   });
 }
@@ -511,6 +603,12 @@ function _sanitize(str) {
   return (str || '').trim().replace(/[\\/:"*?<>|]+/g, '').replace(/\s+/g, '_').substring(0, 60);
 }
 
+function _getVertExportName(number) {
+  const template = _getActiveVertTemplate();
+  const base = _sanitize(template ? template.name : '') || 'template';
+  return `${base}_buyukbas-${number}`;
+}
+
 // Single certificate filename: "اسم المتبرع - الجهة"
 function getFileName(lang) {
   let donor = '';
@@ -522,6 +620,7 @@ function getFileName(lang) {
     const el = document.getElementById(idMap[lang] || 'ar-donor');
     donor = el ? el.value : '';
   }
+  if (lang === 'vert') return _getVertExportName(1);
   const tabLabel = _getTabLabel(lang);
   const base = donor ? _sanitize(donor) + (tabLabel ? ' - ' + _sanitize(tabLabel) : '') : 'لوحة';
   return base || 'لوحة';
@@ -529,6 +628,7 @@ function getFileName(lang) {
 
 // Batch filename: "اسم الجهة-عدد التصاميم"
 function getBatchFileName(lang, count) {
+  if (lang === 'vert') return _getVertExportName(count);
   const tabLabel = _getTabLabel(lang) || 'إنتاج';
   return _sanitize(tabLabel) + '-' + count;
 }
@@ -958,7 +1058,7 @@ async function startBatch(lang) {
   const img = lang === 'arabic' ? AR_IMG :
               lang === 'english' ? EN_IMG :
               lang === 'vacip'   ? (VK_TR_IMG || VK_AR_IMG) :
-              lang === 'vert'    ? VERT_IMG_LIST[VERT_ACTIVE_IDX] :
+              lang === 'vert'    ? (_getActiveVertTemplate() || {}).img :
               ORG_IMG;
   if (lang === 'vacip' && !VK_TR_IMG && !VK_AR_IMG) { alert('يجب رفع قالب واحد على الأقل أولاً'); return; }
   if (lang !== 'vacip' && (!img || !img.naturalWidth)) { alert('يجب رفع القالب أولاً'); return; }
@@ -1165,7 +1265,7 @@ function _buildTplButtons(entry) {
 
   const TEMPLATES = _pendingBatch.lang === 'vert' ? [
     { key: 'default', label: 'Default', img: null },
-    ...VERT_IMG_LIST.map((img, idx) => ({ key: 'vert-' + idx, label: '3:4 #' + (idx + 1), img })),
+    ...VERT_IMG_LIST.map((template, idx) => ({ key: 'vert-' + idx, label: template.name, img: template.img })),
   ] : [
     { key: 'default',  label: '↩ افتراضي',         img: null },
     { key: 'stk',      label: 'STK',                img: ORG_IMGS.stk },
@@ -1361,7 +1461,9 @@ async function confirmBatchDownload() {
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = `${_sanitize(entries[i].name)} - ${_sanitize(_getTabLabel(lang))}.png`;
+          a.download = lang === 'vert'
+            ? `${_getVertExportName(i + 1)}.png`
+            : `${_sanitize(entries[i].name)} - ${_sanitize(_getTabLabel(lang))}.png`;
           document.body.appendChild(a); a.click(); document.body.removeChild(a);
           setTimeout(() => { URL.revokeObjectURL(url); resolve(); }, 300);
         }, 'image/png');
@@ -2024,6 +2126,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _hookStateSave();
   _hideVKPromptIfReady();
   loadCustomTabs();
+  loadVertTemplates();
   // Sync color-val display on any color input change
   document.addEventListener('input', e => {
     if (e.target.type === 'color') {
@@ -2157,7 +2260,7 @@ function histRestoreBatch(entry) {
   let img = null;
   if (tabId === 'orgs')  img = ORG_IMG;
   else if (tabId === 'vacip') img = VK_TR_IMG || VK_AR_IMG;
-  else if (tabId === 'vert') img = VERT_IMG_LIST[VERT_ACTIVE_IDX];
+  else if (tabId === 'vert') img = (_getActiveVertTemplate() || {}).img;
   else { const ct = CUSTOM_TABS.find(t => t.id === tabId); img = ct ? ct.img : null; }
 
   if (!img || !img.naturalWidth) {
