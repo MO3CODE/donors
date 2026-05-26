@@ -180,6 +180,35 @@ const VERT_W = 1240;
 const VERT_H = 1653;
 let VERT_IMG_LIST = [];
 let VERT_ACTIVE_IDX = 0;
+
+// ── Static preset templates (always loaded from server) ───────────────────────
+const VERT_STATIC_PRESETS = [
+  { src: '/guzeleser.png',     name: 'Güzel Eser - Vacip' },
+  { src: '/guzeleserar.png',   name: 'گوزل إيسر - الأضاحي' },
+  { src: '/guzelsadaka.png',   name: 'Güzel Eser - Sadaka' },
+  { src: '/guzelnafile.png',   name: 'Güzel Eser - Nafile' },
+  { src: '/stk.png',           name: 'STK - Vacip' },
+  { src: '/kayra.png',         name: 'KAYRA - Vacip' },
+  { src: '/ummetin_abisi.png', name: 'Ümmetin Abisi - Vacip' },
+];
+
+function _loadVertStaticPresets(callback) {
+  let done = 0;
+  const results = [];
+  VERT_STATIC_PRESETS.forEach(function(preset, i) {
+    const img = new Image();
+    img.onload = function() {
+      results[i] = { img, name: preset.name, dataUrl: preset.src, isStatic: true };
+      done++;
+      if (done === VERT_STATIC_PRESETS.length) callback(results.filter(Boolean));
+    };
+    img.onerror = function() {
+      done++;
+      if (done === VERT_STATIC_PRESETS.length) callback(results.filter(Boolean));
+    };
+    img.src = preset.src;
+  });
+}
 const VERT_DB_NAME = 'donor_cert_templates_db';
 const VERT_DB_STORE = 'vert_templates';
 const VERT_DB_KEY = 'templates_v1';
@@ -213,9 +242,11 @@ async function saveVertTemplates() {
   if (!window.indexedDB) return;
   try {
     const db = await _openVertTemplateDB();
+    const userTemplates = VERT_IMG_LIST.filter(t => !t.isStatic);
+    const staticCount = VERT_IMG_LIST.length - userTemplates.length;
     const stored = {
-      activeIdx: VERT_ACTIVE_IDX,
-      templates: VERT_IMG_LIST.map(template => ({
+      activeIdx: Math.max(0, VERT_ACTIVE_IDX - staticCount),
+      templates: userTemplates.map(template => ({
         name: template.name,
         dataUrl: template.dataUrl,
       })),
@@ -233,7 +264,22 @@ async function saveVertTemplates() {
 }
 
 async function loadVertTemplates() {
-  if (!window.indexedDB) return;
+  // Always load static presets first
+  await new Promise(resolve => {
+    _loadVertStaticPresets(function(presets) {
+      // Merge: keep only user-uploaded entries (non-static) from existing list
+      const userUploaded = VERT_IMG_LIST.filter(t => !t.isStatic);
+      VERT_IMG_LIST = [...presets, ...userUploaded];
+      resolve();
+    });
+  });
+
+  // Then restore user-uploaded templates from IndexedDB
+  if (!window.indexedDB) {
+    updateVertTemplatesList();
+    if (VERT_IMG_LIST.length > 0) renderVert();
+    return;
+  }
   try {
     const db = await _openVertTemplateDB();
     const stored = await new Promise((resolve, reject) => {
@@ -243,22 +289,29 @@ async function loadVertTemplates() {
       request.onerror = function() { reject(request.error); };
     });
     db.close();
-    if (!stored || !Array.isArray(stored.templates) || !stored.templates.length) return;
-    const templates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
-      const img = new Image();
-      img.onload = function() {
-        resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl });
-      };
-      img.onerror = function() { resolve(null); };
-      img.src = template.dataUrl;
-    })));
-    VERT_IMG_LIST = templates.filter(Boolean);
-    VERT_ACTIVE_IDX = Math.min(Number(stored.activeIdx) || 0, Math.max(0, VERT_IMG_LIST.length - 1));
-    updateVertTemplatesList();
-    if (VERT_IMG_LIST.length > 0) renderVert();
+    if (stored && Array.isArray(stored.templates) && stored.templates.length) {
+      const userTemplates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
+        const img = new Image();
+        img.onload = function() {
+          resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl });
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = template.dataUrl;
+      })));
+      const staticPresets = VERT_IMG_LIST.filter(t => t.isStatic);
+      VERT_IMG_LIST = [...staticPresets, ...userTemplates.filter(Boolean)];
+      // Shift active index to account for static presets at the front
+      const savedIdx = Number(stored.activeIdx) || 0;
+      VERT_ACTIVE_IDX = Math.min(
+        staticPresets.length + savedIdx,
+        Math.max(0, VERT_IMG_LIST.length - 1)
+      );
+    }
   } catch (error) {
     console.warn('Could not restore 3:4 templates.', error);
   }
+  updateVertTemplatesList();
+  if (VERT_IMG_LIST.length > 0) renderVert();
 }
 
 function toggleAuto(lang, field) {
@@ -428,9 +481,14 @@ function updateVertTemplatesList() {
     thumb.appendChild(lbl);
     const del = document.createElement('div');
     del.textContent = '✕';
-    del.style.cssText = 'position:absolute;top:0;right:0;background:rgba(180,50,50,0.85);color:#fff;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:0 0 0 4px;';
+    if (template.isStatic) {
+      del.style.cssText = 'display:none;';
+    } else {
+      del.style.cssText = 'position:absolute;top:0;right:0;background:rgba(180,50,50,0.85);color:#fff;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:0 0 0 4px;';
+    }
     del.onclick = function(ev) {
       ev.stopPropagation();
+      if (VERT_IMG_LIST[idx] && VERT_IMG_LIST[idx].isStatic) return;
       VERT_IMG_LIST.splice(idx, 1);
       if (VERT_ACTIVE_IDX >= VERT_IMG_LIST.length) VERT_ACTIVE_IDX = Math.max(0, VERT_IMG_LIST.length - 1);
       updateVertTemplatesList();
