@@ -1,24 +1,38 @@
 // ── EXIF orientation fix for mobile-uploaded images ──────────────────────────
+// Reads EXIF from raw bytes (ArrayBuffer), applies rotation via canvas if needed.
+// Always calls callback(dataUrl, img) — never fails silently.
 function fixImageOrientation(file, callback) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    const img = new Image();
-    img.onload = function() {
-      // Read EXIF orientation from the raw ArrayBuffer
-      const view = new DataView(e.target.result instanceof ArrayBuffer ? e.target.result : _dataUrlToArrayBuffer(dataUrl));
-      let orientation = 1;
-      try { orientation = _readExifOrientation(view); } catch(_) {}
+  // Step 1: read raw bytes for EXIF, and DataURL for image loading — in parallel
+  const rawReader  = new FileReader();
+  const dataReader = new FileReader();
+  let rawBuf = null, dataUrl = null, imgEl = null;
+  let rawDone = false, dataDone = false;
 
-      if (orientation === 1) { callback(dataUrl, img); return; }
+  function _tryProcess() {
+    if (!rawDone || !dataDone) return;
+    // imgEl may still be loading — wait for it
+    if (imgEl === null) return;
 
-      // Draw corrected image onto a canvas
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const w = img.naturalWidth, h = img.naturalHeight;
+    let orientation = 1;
+    try {
+      const view = new DataView(rawBuf);
+      orientation = _readExifOrientation(view);
+    } catch (_) {}
+
+    // No rotation needed — just use what we have
+    if (orientation <= 1 || orientation > 8) {
+      callback(dataUrl, imgEl);
+      return;
+    }
+
+    // Apply rotation on an off-screen canvas
+    try {
+      const w = imgEl.naturalWidth, h = imgEl.naturalHeight;
       const swap = orientation >= 5;
+      const canvas = document.createElement('canvas');
       canvas.width  = swap ? h : w;
       canvas.height = swap ? w : h;
+      const ctx = canvas.getContext('2d');
       ctx.save();
       switch (orientation) {
         case 2: ctx.transform(-1, 0, 0,  1, w, 0); break;
@@ -29,46 +43,80 @@ function fixImageOrientation(file, callback) {
         case 7: ctx.transform( 0,-1,-1,  0, h, w); break;
         case 8: ctx.transform( 0,-1, 1,  0, 0, w); break;
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(imgEl, 0, 0);
       ctx.restore();
-      const correctedUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const correctedUrl = canvas.toDataURL('image/jpeg', 0.92);
+      // Validate the corrected URL is not blank
+      if (!correctedUrl || correctedUrl === 'data:,') { callback(dataUrl, imgEl); return; }
       const correctedImg = new Image();
       correctedImg.onload = function() { callback(correctedUrl, correctedImg); };
+      correctedImg.onerror = function() { callback(dataUrl, imgEl); };
       correctedImg.src = correctedUrl;
+    } catch (_) {
+      // Canvas failed (e.g. memory limit on mobile) — fall back to original
+      callback(dataUrl, imgEl);
+    }
+  }
+
+  rawReader.onload = function(e) {
+    rawBuf = e.target.result;
+    rawDone = true;
+    _tryProcess();
+  };
+  rawReader.onerror = function() {
+    rawBuf = new ArrayBuffer(0);
+    rawDone = true;
+    _tryProcess();
+  };
+
+  dataReader.onload = function(e) {
+    dataUrl = e.target.result;
+    dataDone = true;
+    const img = new Image();
+    img.onload = function() { imgEl = img; _tryProcess(); };
+    img.onerror = function() {
+      // Image failed to load entirely — nothing we can do
+      imgEl = img;
+      callback(dataUrl, img);
     };
     img.src = dataUrl;
   };
-  reader.readAsDataURL(file);
-}
+  dataReader.onerror = function() {
+    // FileReader failed — nothing we can do
+    callback('', new Image());
+  };
 
-function _dataUrlToArrayBuffer(dataUrl) {
-  const base64 = dataUrl.split(',')[1];
-  const bin = atob(base64);
-  const buf = new ArrayBuffer(bin.length);
-  const view = new Uint8Array(buf);
-  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
-  return buf;
+  rawReader.readAsArrayBuffer(file);
+  dataReader.readAsDataURL(file);
 }
 
 function _readExifOrientation(view) {
+  if (view.byteLength < 4) return 1;
   if (view.getUint16(0, false) !== 0xFFD8) return 1;
   let offset = 2;
-  while (offset < view.byteLength) {
+  while (offset + 4 <= view.byteLength) {
     const marker = view.getUint16(offset, false);
     offset += 2;
     if (marker === 0xFFE1) {
+      if (offset + 6 > view.byteLength) return 1;
       if (view.getUint32(offset + 2, false) !== 0x45786966) return 1;
       const little = view.getUint16(offset + 8, false) === 0x4949;
       offset += 10;
+      if (offset + 2 > view.byteLength) return 1;
       const tags = view.getUint16(offset, little);
       offset += 2;
       for (let i = 0; i < tags; i++) {
+        if (offset + i * 12 + 10 > view.byteLength) break;
         if (view.getUint16(offset + i * 12, little) === 0x0112) {
           return view.getUint16(offset + i * 12 + 8, little);
         }
       }
+      return 1;
     } else if ((marker & 0xFF00) !== 0xFF00) break;
-    else offset += view.getUint16(offset, false);
+    else {
+      if (offset + 2 > view.byteLength) break;
+      offset += view.getUint16(offset, false);
+    }
   }
   return 1;
 }
