@@ -1,3 +1,78 @@
+// ── EXIF orientation fix for mobile-uploaded images ──────────────────────────
+function fixImageOrientation(file, callback) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const img = new Image();
+    img.onload = function() {
+      // Read EXIF orientation from the raw ArrayBuffer
+      const view = new DataView(e.target.result instanceof ArrayBuffer ? e.target.result : _dataUrlToArrayBuffer(dataUrl));
+      let orientation = 1;
+      try { orientation = _readExifOrientation(view); } catch(_) {}
+
+      if (orientation === 1) { callback(dataUrl, img); return; }
+
+      // Draw corrected image onto a canvas
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const w = img.naturalWidth, h = img.naturalHeight;
+      const swap = orientation >= 5;
+      canvas.width  = swap ? h : w;
+      canvas.height = swap ? w : h;
+      ctx.save();
+      switch (orientation) {
+        case 2: ctx.transform(-1, 0, 0,  1, w, 0); break;
+        case 3: ctx.transform(-1, 0, 0, -1, w, h); break;
+        case 4: ctx.transform( 1, 0, 0, -1, 0, h); break;
+        case 5: ctx.transform( 0, 1, 1,  0, 0, 0); break;
+        case 6: ctx.transform( 0, 1,-1,  0, h, 0); break;
+        case 7: ctx.transform( 0,-1,-1,  0, h, w); break;
+        case 8: ctx.transform( 0,-1, 1,  0, 0, w); break;
+      }
+      ctx.drawImage(img, 0, 0);
+      ctx.restore();
+      const correctedUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const correctedImg = new Image();
+      correctedImg.onload = function() { callback(correctedUrl, correctedImg); };
+      correctedImg.src = correctedUrl;
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+
+function _dataUrlToArrayBuffer(dataUrl) {
+  const base64 = dataUrl.split(',')[1];
+  const bin = atob(base64);
+  const buf = new ArrayBuffer(bin.length);
+  const view = new Uint8Array(buf);
+  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
+  return buf;
+}
+
+function _readExifOrientation(view) {
+  if (view.getUint16(0, false) !== 0xFFD8) return 1;
+  let offset = 2;
+  while (offset < view.byteLength) {
+    const marker = view.getUint16(offset, false);
+    offset += 2;
+    if (marker === 0xFFE1) {
+      if (view.getUint32(offset + 2, false) !== 0x45786966) return 1;
+      const little = view.getUint16(offset + 8, false) === 0x4949;
+      offset += 10;
+      const tags = view.getUint16(offset, little);
+      offset += 2;
+      for (let i = 0; i < tags; i++) {
+        if (view.getUint16(offset + i * 12, little) === 0x0112) {
+          return view.getUint16(offset + i * 12 + 8, little);
+        }
+      }
+    } else if ((marker & 0xFF00) !== 0xFF00) break;
+    else offset += view.getUint16(offset, false);
+  }
+  return 1;
+}
+
 // ── Template images loaded from files (no Base64 embedding) ─────────────────
 
 const AR_IMG = new Image();
@@ -260,34 +335,20 @@ function loadVertTemplate(input) {
   if (!files.length) return;
   let loaded = 0;
   files.forEach(function(file) {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      const img = new Image();
-      img.onload = function() {
-        VERT_IMG_LIST.push({
-          img,
-          name: _getVertTemplateName(file.name),
-          dataUrl: e.target.result,
-        });
-        loaded++;
-        if (loaded === files.length) {
-          VERT_ACTIVE_IDX = VERT_IMG_LIST.length - 1;
-          updateVertTemplatesList();
-          renderVert();
-          saveVertTemplates();
-        }
-      };
-      img.onerror = function() {
-        loaded++;
-        if (loaded === files.length) {
-          updateVertTemplatesList();
-          if (VERT_IMG_LIST.length > 0) renderVert();
-          saveVertTemplates();
-        }
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
+    fixImageOrientation(file, function(dataUrl, img) {
+      VERT_IMG_LIST.push({
+        img,
+        name: _getVertTemplateName(file.name),
+        dataUrl,
+      });
+      loaded++;
+      if (loaded === files.length) {
+        VERT_ACTIVE_IDX = VERT_IMG_LIST.length - 1;
+        updateVertTemplatesList();
+        renderVert();
+        saveVertTemplates();
+      }
+    });
   });
   input.value = '';
 }
@@ -414,19 +475,13 @@ function renderVacip() {
 function loadVacipTemplate(input, type) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      if (type === 'tr') VK_TR_IMG = img;
-      else               VK_AR_IMG = img;
-      _updateVKStatus();
-      document.getElementById('vk-upload-prompt').style.display = 'none';
-      renderVacip();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  fixImageOrientation(file, function(dataUrl, img) {
+    if (type === 'tr') VK_TR_IMG = img;
+    else               VK_AR_IMG = img;
+    _updateVKStatus();
+    document.getElementById('vk-upload-prompt').style.display = 'none';
+    renderVacip();
+  });
 }
 
 // ===================== ORGS MULTI-SLOT =====================
@@ -535,18 +590,12 @@ function loadOrgTemplate(input, slot) {
   const file = input.files[0];
   if (!file) return;
   const s = slot || ORG_ACTIVE_SLOT;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      ORG_IMGS[s] = img;
-      const badge = document.getElementById(`org-status-${s}`);
-      if (badge) badge.textContent = '✓';
-      selectOrgSlot(s);
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  fixImageOrientation(file, function(dataUrl, img) {
+    ORG_IMGS[s] = img;
+    const badge = document.getElementById(`org-status-${s}`);
+    if (badge) badge.textContent = '✓';
+    selectOrgSlot(s);
+  });
 }
 
 function renderEnglish() {
@@ -564,17 +613,12 @@ function renderEnglish() {
 function loadEnglishTemplate(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    EN_IMG = new Image();
-    EN_IMG.onload = function() {
-      document.getElementById('en-upload-prompt').style.display = 'none';
-      document.getElementById('en-canvas-wrapper').style.display = 'block';
-      renderEnglish();
-    };
-    EN_IMG.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  fixImageOrientation(file, function(dataUrl, img) {
+    EN_IMG = img;
+    document.getElementById('en-upload-prompt').style.display = 'none';
+    document.getElementById('en-canvas-wrapper').style.display = 'block';
+    renderEnglish();
+  });
 }
 
 
@@ -1352,8 +1396,10 @@ function refreshEditPreview() {
   const wrap    = document.getElementById('batch-edit-canvas-wrap');
   const preview = document.getElementById('batch-edit-canvas-preview');
 
-  // clientWidth can be 0 if DOM not yet painted — fall back to window width minus panel
-  const availW = wrap.clientWidth > 10 ? wrap.clientWidth : (window.innerWidth - 340);
+  // On mobile the edit panel stacks vertically, so use full width
+  const isMobile = window.innerWidth <= 700;
+  const fallbackW = isMobile ? (window.innerWidth - 24) : (window.innerWidth - 340);
+  const availW = wrap.clientWidth > 10 ? wrap.clientWidth : fallbackW;
   const scale  = Math.min(1, (availW - 16) / c.width);
   const dispH  = Math.round(c.height * scale);
 
@@ -1671,18 +1717,12 @@ function _ctRender(tabId) {
 function loadCustomTemplate(input, tabId) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const img = new Image();
-    img.onload = function() {
-      const tab = CUSTOM_TABS.find(t => t.id === tabId);
-      if (tab) { tab.img = img; tab.templateDataUrl = e.target.result; }
-      _ctRender(tabId);
-      saveCustomTabs();
-    };
-    img.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+  fixImageOrientation(file, function(dataUrl, img) {
+    const tab = CUSTOM_TABS.find(t => t.id === tabId);
+    if (tab) { tab.img = img; tab.templateDataUrl = dataUrl; }
+    _ctRender(tabId);
+    saveCustomTabs();
+  });
 }
 
 function _buildCustomTabPanel(tab) {
