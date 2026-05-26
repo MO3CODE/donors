@@ -128,6 +128,8 @@ AR_IMG.src = '/template_arabic.png.jpg';
 
 let VK_AR_IMG = null;
 let VK_TR_IMG = null;
+let VK_SADAKA_IMG = null;
+let VK_NAFILE_IMG = null;
 
 const VK_AR_IMG_STATIC = new Image();
 VK_AR_IMG_STATIC.src = '/template_arabic.png.jpg';
@@ -140,6 +142,20 @@ const VK_TR_IMG_STATIC = new Image();
 VK_TR_IMG_STATIC.src = '/template_turkish.png.jpg';
 VK_TR_IMG_STATIC.onload = function() {
   VK_TR_IMG = VK_TR_IMG_STATIC;
+  _hideVKPromptIfReady();
+};
+
+const VK_SADAKA_IMG_STATIC = new Image();
+VK_SADAKA_IMG_STATIC.src = '/SADAKA.jpg';
+VK_SADAKA_IMG_STATIC.onload = function() {
+  VK_SADAKA_IMG = VK_SADAKA_IMG_STATIC;
+  _hideVKPromptIfReady();
+};
+
+const VK_NAFILE_IMG_STATIC = new Image();
+VK_NAFILE_IMG_STATIC.src = '/nafile.jpg';
+VK_NAFILE_IMG_STATIC.onload = function() {
+  VK_NAFILE_IMG = VK_NAFILE_IMG_STATIC;
   _hideVKPromptIfReady();
 };
 
@@ -158,7 +174,8 @@ ORG_KAYRA_IMG_STATIC.src = '/KAYRA.jpg';
 
 
 function _hideVKPromptIfReady() {
-  if ((VK_AR_IMG && VK_AR_IMG.naturalWidth) || (VK_TR_IMG && VK_TR_IMG.naturalWidth)) {
+  if ((VK_AR_IMG && VK_AR_IMG.naturalWidth) || (VK_TR_IMG && VK_TR_IMG.naturalWidth) ||
+      (VK_SADAKA_IMG && VK_SADAKA_IMG.naturalWidth) || (VK_NAFILE_IMG && VK_NAFILE_IMG.naturalWidth)) {
     const prompt = document.getElementById('vk-upload-prompt');
     if (prompt) prompt.style.display = 'none';
     _updateVKStatus();
@@ -531,11 +548,11 @@ function _isArabic(text) {
   return /[؀-ۿ]/.test(text);
 }
 
-let VK_TEMPLATE_MODE = 'auto'; // 'auto' | 'arabic' | 'turkish'
+let VK_TEMPLATE_MODE = 'auto'; // 'auto' | 'arabic' | 'turkish' | 'sadaka' | 'nafile'
 
 function setVKTemplate(mode) {
   VK_TEMPLATE_MODE = mode;
-  ['auto','arabic','turkish'].forEach(m => {
+  ['auto','arabic','turkish','sadaka','nafile'].forEach(m => {
     const btn = document.getElementById('vk-tpl-' + m);
     if (btn) btn.classList.toggle('vk-tpl-active', m === mode);
   });
@@ -546,6 +563,8 @@ function setVKTemplate(mode) {
 function _getVKImg(donorText) {
   if (VK_TEMPLATE_MODE === 'arabic')  return VK_AR_IMG;
   if (VK_TEMPLATE_MODE === 'turkish') return VK_TR_IMG;
+  if (VK_TEMPLATE_MODE === 'sadaka')  return VK_SADAKA_IMG;
+  if (VK_TEMPLATE_MODE === 'nafile')  return VK_NAFILE_IMG;
   return _isArabic(donorText) ? VK_AR_IMG : VK_TR_IMG;
 }
 
@@ -1207,10 +1226,10 @@ async function startBatch(lang) {
 
   const img = lang === 'arabic' ? AR_IMG :
               lang === 'english' ? EN_IMG :
-              lang === 'vacip'   ? (VK_TR_IMG || VK_AR_IMG) :
+              lang === 'vacip'   ? (_getVKImg(document.getElementById('vk-donor') ? document.getElementById('vk-donor').value : '') || VK_TR_IMG || VK_AR_IMG || VK_SADAKA_IMG || VK_NAFILE_IMG) :
               lang === 'vert'    ? (_getActiveVertTemplate() || {}).img :
               ORG_IMG;
-  if (lang === 'vacip' && !VK_TR_IMG && !VK_AR_IMG) { alert('يجب رفع قالب واحد على الأقل أولاً'); return; }
+  if (lang === 'vacip' && !VK_TR_IMG && !VK_AR_IMG && !VK_SADAKA_IMG && !VK_NAFILE_IMG) { alert('يجب رفع قالب واحد على الأقل أولاً'); return; }
   if (lang !== 'vacip' && (!img || !img.naturalWidth)) { alert('يجب رفع القالب أولاً'); return; }
 
   const names = namesRaw.split('\n').map(n => n.trim()).filter(Boolean);
@@ -1421,8 +1440,10 @@ function _buildTplButtons(entry) {
     { key: 'stk',      label: 'STK',                img: ORG_IMGS.stk },
     { key: 'ummetin',  label: 'ÜMMETİN ABİSİ',     img: ORG_IMGS.ummetin },
     { key: 'kayra',    label: 'KAYRA',               img: ORG_IMGS.kayra },
-    { key: 'vk-ar',   label: '🇾🇪 القربان — عربي', img: VK_AR_IMG },
-    { key: 'vk-tr',   label: '🇹🇷 القربان — تركي', img: VK_TR_IMG },
+    { key: 'vk-ar',     label: '🇾🇪 القربان — عربي', img: VK_AR_IMG },
+    { key: 'vk-tr',     label: '🇹🇷 القربان — تركي', img: VK_TR_IMG },
+    { key: 'vk-sadaka', label: '🟢 صدقة كربانى',     img: VK_SADAKA_IMG },
+    { key: 'vk-nafile', label: '🔵 نافلة كربانى',    img: VK_NAFILE_IMG },
     ...CUSTOM_TABS.filter(t => t.img).map(t => ({ key: 'ct-' + t.id, label: t.name, img: t.img })),
   ];
 
@@ -2405,7 +2426,7 @@ function histRestoreBatch(entry) {
   // Determine img
   let img = null;
   if (tabId === 'orgs')  img = ORG_IMG;
-  else if (tabId === 'vacip') img = VK_TR_IMG || VK_AR_IMG;
+  else if (tabId === 'vacip') img = _getVKImg('') || VK_TR_IMG || VK_AR_IMG || VK_SADAKA_IMG || VK_NAFILE_IMG;
   else if (tabId === 'vert') img = (_getActiveVertTemplate() || {}).img;
   else { const ct = CUSTOM_TABS.find(t => t.id === tabId); img = ct ? ct.img : null; }
 
