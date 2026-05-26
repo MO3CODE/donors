@@ -1,24 +1,38 @@
 // ── EXIF orientation fix for mobile-uploaded images ──────────────────────────
+// Reads EXIF from raw bytes (ArrayBuffer), applies rotation via canvas if needed.
+// Always calls callback(dataUrl, img) — never fails silently.
 function fixImageOrientation(file, callback) {
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    const img = new Image();
-    img.onload = function() {
-      // Read EXIF orientation from the raw ArrayBuffer
-      const view = new DataView(e.target.result instanceof ArrayBuffer ? e.target.result : _dataUrlToArrayBuffer(dataUrl));
-      let orientation = 1;
-      try { orientation = _readExifOrientation(view); } catch(_) {}
+  // Step 1: read raw bytes for EXIF, and DataURL for image loading — in parallel
+  const rawReader  = new FileReader();
+  const dataReader = new FileReader();
+  let rawBuf = null, dataUrl = null, imgEl = null;
+  let rawDone = false, dataDone = false;
 
-      if (orientation === 1) { callback(dataUrl, img); return; }
+  function _tryProcess() {
+    if (!rawDone || !dataDone) return;
+    // imgEl may still be loading — wait for it
+    if (imgEl === null) return;
 
-      // Draw corrected image onto a canvas
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const w = img.naturalWidth, h = img.naturalHeight;
+    let orientation = 1;
+    try {
+      const view = new DataView(rawBuf);
+      orientation = _readExifOrientation(view);
+    } catch (_) {}
+
+    // No rotation needed — just use what we have
+    if (orientation <= 1 || orientation > 8) {
+      callback(dataUrl, imgEl);
+      return;
+    }
+
+    // Apply rotation on an off-screen canvas
+    try {
+      const w = imgEl.naturalWidth, h = imgEl.naturalHeight;
       const swap = orientation >= 5;
+      const canvas = document.createElement('canvas');
       canvas.width  = swap ? h : w;
       canvas.height = swap ? w : h;
+      const ctx = canvas.getContext('2d');
       ctx.save();
       switch (orientation) {
         case 2: ctx.transform(-1, 0, 0,  1, w, 0); break;
@@ -29,46 +43,80 @@ function fixImageOrientation(file, callback) {
         case 7: ctx.transform( 0,-1,-1,  0, h, w); break;
         case 8: ctx.transform( 0,-1, 1,  0, 0, w); break;
       }
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(imgEl, 0, 0);
       ctx.restore();
-      const correctedUrl = canvas.toDataURL('image/jpeg', 0.95);
+      const correctedUrl = canvas.toDataURL('image/jpeg', 0.92);
+      // Validate the corrected URL is not blank
+      if (!correctedUrl || correctedUrl === 'data:,') { callback(dataUrl, imgEl); return; }
       const correctedImg = new Image();
       correctedImg.onload = function() { callback(correctedUrl, correctedImg); };
+      correctedImg.onerror = function() { callback(dataUrl, imgEl); };
       correctedImg.src = correctedUrl;
+    } catch (_) {
+      // Canvas failed (e.g. memory limit on mobile) — fall back to original
+      callback(dataUrl, imgEl);
+    }
+  }
+
+  rawReader.onload = function(e) {
+    rawBuf = e.target.result;
+    rawDone = true;
+    _tryProcess();
+  };
+  rawReader.onerror = function() {
+    rawBuf = new ArrayBuffer(0);
+    rawDone = true;
+    _tryProcess();
+  };
+
+  dataReader.onload = function(e) {
+    dataUrl = e.target.result;
+    dataDone = true;
+    const img = new Image();
+    img.onload = function() { imgEl = img; _tryProcess(); };
+    img.onerror = function() {
+      // Image failed to load entirely — nothing we can do
+      imgEl = img;
+      callback(dataUrl, img);
     };
     img.src = dataUrl;
   };
-  reader.readAsDataURL(file);
-}
+  dataReader.onerror = function() {
+    // FileReader failed — nothing we can do
+    callback('', new Image());
+  };
 
-function _dataUrlToArrayBuffer(dataUrl) {
-  const base64 = dataUrl.split(',')[1];
-  const bin = atob(base64);
-  const buf = new ArrayBuffer(bin.length);
-  const view = new Uint8Array(buf);
-  for (let i = 0; i < bin.length; i++) view[i] = bin.charCodeAt(i);
-  return buf;
+  rawReader.readAsArrayBuffer(file);
+  dataReader.readAsDataURL(file);
 }
 
 function _readExifOrientation(view) {
+  if (view.byteLength < 4) return 1;
   if (view.getUint16(0, false) !== 0xFFD8) return 1;
   let offset = 2;
-  while (offset < view.byteLength) {
+  while (offset + 4 <= view.byteLength) {
     const marker = view.getUint16(offset, false);
     offset += 2;
     if (marker === 0xFFE1) {
+      if (offset + 6 > view.byteLength) return 1;
       if (view.getUint32(offset + 2, false) !== 0x45786966) return 1;
       const little = view.getUint16(offset + 8, false) === 0x4949;
       offset += 10;
+      if (offset + 2 > view.byteLength) return 1;
       const tags = view.getUint16(offset, little);
       offset += 2;
       for (let i = 0; i < tags; i++) {
+        if (offset + i * 12 + 10 > view.byteLength) break;
         if (view.getUint16(offset + i * 12, little) === 0x0112) {
           return view.getUint16(offset + i * 12 + 8, little);
         }
       }
+      return 1;
     } else if ((marker & 0xFF00) !== 0xFF00) break;
-    else offset += view.getUint16(offset, false);
+    else {
+      if (offset + 2 > view.byteLength) break;
+      offset += view.getUint16(offset, false);
+    }
   }
   return 1;
 }
@@ -132,6 +180,35 @@ const VERT_W = 1240;
 const VERT_H = 1653;
 let VERT_IMG_LIST = [];
 let VERT_ACTIVE_IDX = 0;
+
+// ── Static preset templates (always loaded from server) ───────────────────────
+const VERT_STATIC_PRESETS = [
+  { src: '/guzeleser.png',     name: 'Güzel Eser - Vacip' },
+  { src: '/guzeleserar.png',   name: 'گوزل إيسر - الأضاحي' },
+  { src: '/guzelsadaka.png',   name: 'Güzel Eser - Sadaka' },
+  { src: '/guzelnafile.png',   name: 'Güzel Eser - Nafile' },
+  { src: '/stk.png',           name: 'STK - Vacip' },
+  { src: '/kayra.png',         name: 'KAYRA - Vacip' },
+  { src: '/ummetin_abisi.png', name: 'Ümmetin Abisi - Vacip' },
+];
+
+function _loadVertStaticPresets(callback) {
+  let done = 0;
+  const results = [];
+  VERT_STATIC_PRESETS.forEach(function(preset, i) {
+    const img = new Image();
+    img.onload = function() {
+      results[i] = { img, name: preset.name, dataUrl: preset.src, isStatic: true };
+      done++;
+      if (done === VERT_STATIC_PRESETS.length) callback(results.filter(Boolean));
+    };
+    img.onerror = function() {
+      done++;
+      if (done === VERT_STATIC_PRESETS.length) callback(results.filter(Boolean));
+    };
+    img.src = preset.src;
+  });
+}
 const VERT_DB_NAME = 'donor_cert_templates_db';
 const VERT_DB_STORE = 'vert_templates';
 const VERT_DB_KEY = 'templates_v1';
@@ -165,9 +242,11 @@ async function saveVertTemplates() {
   if (!window.indexedDB) return;
   try {
     const db = await _openVertTemplateDB();
+    const userTemplates = VERT_IMG_LIST.filter(t => !t.isStatic);
+    const staticCount = VERT_IMG_LIST.length - userTemplates.length;
     const stored = {
-      activeIdx: VERT_ACTIVE_IDX,
-      templates: VERT_IMG_LIST.map(template => ({
+      activeIdx: Math.max(0, VERT_ACTIVE_IDX - staticCount),
+      templates: userTemplates.map(template => ({
         name: template.name,
         dataUrl: template.dataUrl,
       })),
@@ -185,7 +264,22 @@ async function saveVertTemplates() {
 }
 
 async function loadVertTemplates() {
-  if (!window.indexedDB) return;
+  // Always load static presets first
+  await new Promise(resolve => {
+    _loadVertStaticPresets(function(presets) {
+      // Merge: keep only user-uploaded entries (non-static) from existing list
+      const userUploaded = VERT_IMG_LIST.filter(t => !t.isStatic);
+      VERT_IMG_LIST = [...presets, ...userUploaded];
+      resolve();
+    });
+  });
+
+  // Then restore user-uploaded templates from IndexedDB
+  if (!window.indexedDB) {
+    updateVertTemplatesList();
+    if (VERT_IMG_LIST.length > 0) renderVert();
+    return;
+  }
   try {
     const db = await _openVertTemplateDB();
     const stored = await new Promise((resolve, reject) => {
@@ -195,22 +289,29 @@ async function loadVertTemplates() {
       request.onerror = function() { reject(request.error); };
     });
     db.close();
-    if (!stored || !Array.isArray(stored.templates) || !stored.templates.length) return;
-    const templates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
-      const img = new Image();
-      img.onload = function() {
-        resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl });
-      };
-      img.onerror = function() { resolve(null); };
-      img.src = template.dataUrl;
-    })));
-    VERT_IMG_LIST = templates.filter(Boolean);
-    VERT_ACTIVE_IDX = Math.min(Number(stored.activeIdx) || 0, Math.max(0, VERT_IMG_LIST.length - 1));
-    updateVertTemplatesList();
-    if (VERT_IMG_LIST.length > 0) renderVert();
+    if (stored && Array.isArray(stored.templates) && stored.templates.length) {
+      const userTemplates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
+        const img = new Image();
+        img.onload = function() {
+          resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl });
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = template.dataUrl;
+      })));
+      const staticPresets = VERT_IMG_LIST.filter(t => t.isStatic);
+      VERT_IMG_LIST = [...staticPresets, ...userTemplates.filter(Boolean)];
+      // Shift active index to account for static presets at the front
+      const savedIdx = Number(stored.activeIdx) || 0;
+      VERT_ACTIVE_IDX = Math.min(
+        staticPresets.length + savedIdx,
+        Math.max(0, VERT_IMG_LIST.length - 1)
+      );
+    }
   } catch (error) {
     console.warn('Could not restore 3:4 templates.', error);
   }
+  updateVertTemplatesList();
+  if (VERT_IMG_LIST.length > 0) renderVert();
 }
 
 function toggleAuto(lang, field) {
@@ -380,9 +481,14 @@ function updateVertTemplatesList() {
     thumb.appendChild(lbl);
     const del = document.createElement('div');
     del.textContent = '✕';
-    del.style.cssText = 'position:absolute;top:0;right:0;background:rgba(180,50,50,0.85);color:#fff;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:0 0 0 4px;';
+    if (template.isStatic) {
+      del.style.cssText = 'display:none;';
+    } else {
+      del.style.cssText = 'position:absolute;top:0;right:0;background:rgba(180,50,50,0.85);color:#fff;font-size:10px;padding:1px 4px;cursor:pointer;border-radius:0 0 0 4px;';
+    }
     del.onclick = function(ev) {
       ev.stopPropagation();
+      if (VERT_IMG_LIST[idx] && VERT_IMG_LIST[idx].isStatic) return;
       VERT_IMG_LIST.splice(idx, 1);
       if (VERT_ACTIVE_IDX >= VERT_IMG_LIST.length) VERT_ACTIVE_IDX = Math.max(0, VERT_IMG_LIST.length - 1);
       updateVertTemplatesList();
