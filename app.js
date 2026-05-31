@@ -1,9 +1,14 @@
 // ── app.js — Thin UI coordinator ─────────────────────────────────────────────
 // Depends on: js/domain.js, js/infrastructure.js (loaded before this file)
 
-// ── Aliases for convenience ───────────────────────────────────────────────────
-const { _resolveTextDirection, _calcSize, buildMultiPagePDF, canvasToJpegBase64, CertificateSettings } = DomainLayer;
-const { fixImageOrientation, CanvasRenderer, TemplateStorage, Exporter } = Infrastructure;
+// ── Layer accessors (safe lazy references — avoids top-level crash if a script fails to load) ──
+// domain.js declares these as global function declarations:
+//   _resolveTextDirection, _calcSize, buildMultiPagePDF, canvasToJpegBase64, CertificateSettings
+// infrastructure.js declares fixImageOrientation as a global function declaration.
+// CanvasRenderer / TemplateStorage / Exporter are const in infrastructure.js,
+// exposed via window.Infrastructure — always access them as Infrastructure.*
+function _getInfra() { return window.Infrastructure || {}; }
+function _getDomain() { return window.DomainLayer || {}; }
 
 // ── Template image globals ────────────────────────────────────────────────────
 const AR_IMG = new Image();
@@ -111,7 +116,7 @@ async function saveVertTemplates() {
     const userTemplates = VERT_IMG_LIST.filter(t => !t.isStatic);
     const staticCount   = VERT_IMG_LIST.length - userTemplates.length;
     const activeUserIdx = Math.max(0, VERT_ACTIVE_IDX - staticCount);
-    await TemplateStorage.save(userTemplates, activeUserIdx);
+    await Infrastructure.TemplateStorage.save(userTemplates, activeUserIdx);
   } catch (e) {
     console.warn('saveVertTemplates failed', e);
   }
@@ -134,7 +139,7 @@ async function loadVertTemplates() {
     return;
   }
   try {
-    const stored = await TemplateStorage.load();
+    const stored = await Infrastructure.TemplateStorage.load();
     if (stored && Array.isArray(stored.templates) && stored.templates.length) {
       const userTemplates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
         const img = new Image();
@@ -322,7 +327,7 @@ function _resolveSettings(lang, s) {
   const gv  = (id, def) => { const el = g(id); return el ? parseInt(el.value) : def; };
   const enabledEl = (id) => { const el = g(id); return el ? el.checked : true; };
 
-  const defaults = CertificateSettings();
+  const defaults = (typeof CertificateSettings === 'function') ? CertificateSettings() : {};
 
   return {
     donorFont    : s?.donorFont    ?? getFont(lang, 'donor'),
@@ -352,7 +357,7 @@ function _resolveSettings(lang, s) {
 // ── drawCertTextDirect — calls CanvasRenderer ─────────────────────────────────
 function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
   const s = _resolveSettings(lang, settings || null);
-  CanvasRenderer.drawText(ctx, donorText, projectText, s);
+  Infrastructure.CanvasRenderer.drawText(ctx, donorText, projectText, s);
 }
 
 // Legacy drawCertText (kept for compatibility — called from renderArabic/renderEnglish)
@@ -689,9 +694,9 @@ function downloadCert(lang, format) {
   if (!canvas) { if (statusEl) statusEl.textContent = '❌ لا يوجد قالب للتحميل'; return; }
 
   if (format === 'pdf') {
-    Exporter.downloadPdf(canvas, name, statusEl);
+    Infrastructure.Exporter.downloadPdf(canvas, name, statusEl);
   } else {
-    Exporter.downloadPng(canvas, name, statusEl);
+    Infrastructure.Exporter.downloadPng(canvas, name, statusEl);
   }
 }
 
@@ -705,12 +710,12 @@ function shareWhatsapp(lang) {
   const canvas   = document.getElementById(canvasId);
   const name     = getFileName(lang);
   const statusEl = getStatusEl(lang);
-  Exporter.shareWhatsapp(canvas, name, statusEl);
+  Infrastructure.Exporter.shareWhatsapp(canvas, name, statusEl);
 }
 
 // Keep legacy fallbackWhatsapp name working
 function fallbackWhatsapp(canvas, name, statusEl) {
-  Exporter.fallback(canvas, name, statusEl);
+  Infrastructure.Exporter.fallback(canvas, name, statusEl);
 }
 
 // ── Batch ─────────────────────────────────────────────────────────────────────
@@ -1105,14 +1110,14 @@ async function confirmBatchDownload() {
 
       const c = getBatchCanvas(lang);
       drawOnCanvas(c, entries[i].name, entries[i].project, lang, img, entries[i].settings, _entryForceImg(entries[i]));
-      jpegDataList.push({ data: canvasToJpegBase64(c), w: c.width, h: c.height });
+      jpegDataList.push({ data: DomainLayer.canvasToJpegBase64(c), w: c.width, h: c.height });
     }
 
     if (barEl) barEl.style.width = '90%';
     if (textEl) textEl.textContent = 'جارٍ تجميع PDF...';
     await new Promise(r => setTimeout(r, 20));
 
-    const pdfBytes = buildMultiPagePDF(jpegDataList);
+    const pdfBytes = DomainLayer.buildMultiPagePDF(jpegDataList);
     if (barEl) barEl.style.width = '100%';
     if (textEl) textEl.textContent = `✓ تم — ${entries.length} لوحة في PDF واحد`;
 
