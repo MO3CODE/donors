@@ -1,204 +1,73 @@
-// ── EXIF orientation fix for mobile-uploaded images ──────────────────────────
-// Reads EXIF from raw bytes (ArrayBuffer), applies rotation via canvas if needed.
-// Always calls callback(dataUrl, img) — never fails silently.
-function fixImageOrientation(file, callback) {
-  // Step 1: read raw bytes for EXIF, and DataURL for image loading — in parallel
-  const rawReader  = new FileReader();
-  const dataReader = new FileReader();
-  let rawBuf = null, dataUrl = null, imgEl = null;
-  let rawDone = false, dataDone = false;
+// ── app.js — Thin UI coordinator ─────────────────────────────────────────────
+// Depends on: js/domain.js, js/infrastructure.js (loaded before this file)
 
-  function _tryProcess() {
-    if (!rawDone || !dataDone) return;
-    // imgEl may still be loading — wait for it
-    if (imgEl === null) return;
+// ── Aliases for convenience ───────────────────────────────────────────────────
+const { _resolveTextDirection, _calcSize, buildMultiPagePDF, canvasToJpegBase64, CertificateSettings } = DomainLayer;
+const { fixImageOrientation, CanvasRenderer, TemplateStorage, Exporter } = Infrastructure;
 
-    let orientation = 1;
-    try {
-      const view = new DataView(rawBuf);
-      orientation = _readExifOrientation(view);
-    } catch (_) {}
-
-    // No rotation needed — just use what we have
-    if (orientation <= 1 || orientation > 8) {
-      callback(dataUrl, imgEl);
-      return;
-    }
-
-    // Apply rotation on an off-screen canvas
-    try {
-      const w = imgEl.naturalWidth, h = imgEl.naturalHeight;
-      const swap = orientation >= 5;
-      const canvas = document.createElement('canvas');
-      canvas.width  = swap ? h : w;
-      canvas.height = swap ? w : h;
-      const ctx = canvas.getContext('2d');
-      ctx.save();
-      switch (orientation) {
-        case 2: ctx.transform(-1, 0, 0,  1, w, 0); break;
-        case 3: ctx.transform(-1, 0, 0, -1, w, h); break;
-        case 4: ctx.transform( 1, 0, 0, -1, 0, h); break;
-        case 5: ctx.transform( 0, 1, 1,  0, 0, 0); break;
-        case 6: ctx.transform( 0, 1,-1,  0, h, 0); break;
-        case 7: ctx.transform( 0,-1,-1,  0, h, w); break;
-        case 8: ctx.transform( 0,-1, 1,  0, 0, w); break;
-      }
-      ctx.drawImage(imgEl, 0, 0);
-      ctx.restore();
-      const correctedUrl = canvas.toDataURL('image/jpeg', 0.92);
-      // Validate the corrected URL is not blank
-      if (!correctedUrl || correctedUrl === 'data:,') { callback(dataUrl, imgEl); return; }
-      const correctedImg = new Image();
-      correctedImg.onload = function() { callback(correctedUrl, correctedImg); };
-      correctedImg.onerror = function() { callback(dataUrl, imgEl); };
-      correctedImg.src = correctedUrl;
-    } catch (_) {
-      // Canvas failed (e.g. memory limit on mobile) — fall back to original
-      callback(dataUrl, imgEl);
-    }
-  }
-
-  rawReader.onload = function(e) {
-    rawBuf = e.target.result;
-    rawDone = true;
-    _tryProcess();
-  };
-  rawReader.onerror = function() {
-    rawBuf = new ArrayBuffer(0);
-    rawDone = true;
-    _tryProcess();
-  };
-
-  dataReader.onload = function(e) {
-    dataUrl = e.target.result;
-    dataDone = true;
-    const img = new Image();
-    img.onload = function() { imgEl = img; _tryProcess(); };
-    img.onerror = function() {
-      // Image failed to load entirely — nothing we can do
-      imgEl = img;
-      callback(dataUrl, img);
-    };
-    img.src = dataUrl;
-  };
-  dataReader.onerror = function() {
-    // FileReader failed — nothing we can do
-    callback('', new Image());
-  };
-
-  rawReader.readAsArrayBuffer(file);
-  dataReader.readAsDataURL(file);
-}
-
-function _readExifOrientation(view) {
-  if (view.byteLength < 4) return 1;
-  if (view.getUint16(0, false) !== 0xFFD8) return 1;
-  let offset = 2;
-  while (offset + 4 <= view.byteLength) {
-    const marker = view.getUint16(offset, false);
-    offset += 2;
-    if (marker === 0xFFE1) {
-      if (offset + 6 > view.byteLength) return 1;
-      if (view.getUint32(offset + 2, false) !== 0x45786966) return 1;
-      const little = view.getUint16(offset + 8, false) === 0x4949;
-      offset += 10;
-      if (offset + 2 > view.byteLength) return 1;
-      const tags = view.getUint16(offset, little);
-      offset += 2;
-      for (let i = 0; i < tags; i++) {
-        if (offset + i * 12 + 10 > view.byteLength) break;
-        if (view.getUint16(offset + i * 12, little) === 0x0112) {
-          return view.getUint16(offset + i * 12 + 8, little);
-        }
-      }
-      return 1;
-    } else if ((marker & 0xFF00) !== 0xFF00) break;
-    else {
-      if (offset + 2 > view.byteLength) break;
-      offset += view.getUint16(offset, false);
-    }
-  }
-  return 1;
-}
-
-// ── Template images loaded from files (no Base64 embedding) ─────────────────
-
+// ── Template image globals ────────────────────────────────────────────────────
 const AR_IMG = new Image();
 AR_IMG.src = '/template_arabic.png.jpg';
 
-let VK_AR_IMG = null;
-let VK_TR_IMG = null;
+// Stub for legacy English tab
+let EN_IMG = null;
+
+let VK_AR_IMG     = null;
+let VK_TR_IMG     = null;
 let VK_SADAKA_IMG = null;
 let VK_NAFILE_IMG = null;
 
 const VK_AR_IMG_STATIC = new Image();
 VK_AR_IMG_STATIC.src = '/template_arabic.png.jpg';
-VK_AR_IMG_STATIC.onload = function() {
-  VK_AR_IMG = VK_AR_IMG_STATIC;
-  _hideVKPromptIfReady();
-};
+VK_AR_IMG_STATIC.onload = function() { VK_AR_IMG = VK_AR_IMG_STATIC; _hideVKPromptIfReady(); };
 
 const VK_TR_IMG_STATIC = new Image();
 VK_TR_IMG_STATIC.src = '/template_turkish.png.jpg';
-VK_TR_IMG_STATIC.onload = function() {
-  VK_TR_IMG = VK_TR_IMG_STATIC;
-  _hideVKPromptIfReady();
-};
+VK_TR_IMG_STATIC.onload = function() { VK_TR_IMG = VK_TR_IMG_STATIC; _hideVKPromptIfReady(); };
 
 const VK_SADAKA_IMG_STATIC = new Image();
 VK_SADAKA_IMG_STATIC.src = '/SADAKA.jpg';
-VK_SADAKA_IMG_STATIC.onload = function() {
-  VK_SADAKA_IMG = VK_SADAKA_IMG_STATIC;
-  _hideVKPromptIfReady();
-};
+VK_SADAKA_IMG_STATIC.onload = function() { VK_SADAKA_IMG = VK_SADAKA_IMG_STATIC; _hideVKPromptIfReady(); };
 
 const VK_NAFILE_IMG_STATIC = new Image();
 VK_NAFILE_IMG_STATIC.src = '/nafile.jpg';
-VK_NAFILE_IMG_STATIC.onload = function() {
-  VK_NAFILE_IMG = VK_NAFILE_IMG_STATIC;
-  _hideVKPromptIfReady();
-};
+VK_NAFILE_IMG_STATIC.onload = function() { VK_NAFILE_IMG = VK_NAFILE_IMG_STATIC; _hideVKPromptIfReady(); };
 
 // ── Org slot images ───────────────────────────────────────────────────────────
 const ORG_IMGS = { stk: null, ummetin: null, kayra: null, custom: null };
 let ORG_ACTIVE_SLOT = 'custom';
 
-const ORG_STK_IMG_STATIC = new Image();
-ORG_STK_IMG_STATIC.src = '/STK.jpg';
+const ORG_STK_IMG_STATIC    = new Image(); ORG_STK_IMG_STATIC.src    = '/STK.jpg';
+const ORG_UMMETIN_IMG_STATIC = new Image(); ORG_UMMETIN_IMG_STATIC.src = '/UMMETIN.jpg';
+const ORG_KAYRA_IMG_STATIC  = new Image(); ORG_KAYRA_IMG_STATIC.src  = '/KAYRA.jpg';
 
-const ORG_UMMETIN_IMG_STATIC = new Image();
-ORG_UMMETIN_IMG_STATIC.src = '/UMMETIN.jpg';
+ORG_STK_IMG_STATIC.onload    = function() { ORG_IMGS.stk    = ORG_STK_IMG_STATIC;    const b = document.getElementById('org-status-stk');    if (b) b.textContent = '✓'; };
+ORG_UMMETIN_IMG_STATIC.onload = function() { ORG_IMGS.ummetin = ORG_UMMETIN_IMG_STATIC; const b = document.getElementById('org-status-ummetin'); if (b) b.textContent = '✓'; };
+ORG_KAYRA_IMG_STATIC.onload  = function() { ORG_IMGS.kayra  = ORG_KAYRA_IMG_STATIC;  const b = document.getElementById('org-status-kayra');  if (b) b.textContent = '✓'; };
 
-const ORG_KAYRA_IMG_STATIC = new Image();
-ORG_KAYRA_IMG_STATIC.src = '/KAYRA.jpg';
+// Virtual ORG_IMG getter (legacy support)
+Object.defineProperty(window, 'ORG_IMG', {
+  get: () => ORG_IMGS[ORG_ACTIVE_SLOT],
+});
 
-
-function _hideVKPromptIfReady() {
-  if ((VK_AR_IMG && VK_AR_IMG.naturalWidth) || (VK_TR_IMG && VK_TR_IMG.naturalWidth) ||
-      (VK_SADAKA_IMG && VK_SADAKA_IMG.naturalWidth) || (VK_NAFILE_IMG && VK_NAFILE_IMG.naturalWidth)) {
-    const prompt = document.getElementById('vk-upload-prompt');
-    if (prompt) prompt.style.display = 'none';
-    _updateVKStatus();
-  }
-}
-ORG_STK_IMG_STATIC.onload = function() { ORG_IMGS.stk = ORG_STK_IMG_STATIC; var b = document.getElementById('org-status-stk'); if(b) b.textContent = '✓'; };
-ORG_UMMETIN_IMG_STATIC.onload = function() { ORG_IMGS.ummetin = ORG_UMMETIN_IMG_STATIC; var b = document.getElementById('org-status-ummetin'); if(b) b.textContent = '✓'; };
-ORG_KAYRA_IMG_STATIC.onload = function() { ORG_IMGS.kayra = ORG_KAYRA_IMG_STATIC; var b = document.getElementById('org-status-kayra'); if(b) b.textContent = '✓'; };
-
-
-
-// Layout constants (1754x1241)
-const BANNER_Y_START = 710;
-const BANNER_Y_END   = 974;
-const BANNER_CENTER_Y = (710 + 974) / 2;  // ~842
-const DONOR_CENTER_Y  = 590;  // center of white donor zone (y=466-710)
+// ── Layout constants ──────────────────────────────────────────────────────────
 const IMG_W = 1754;
+const IMG_H = 1241;
 const VERT_W = 1240;
 const VERT_H = 1653;
-let VERT_IMG_LIST = [];
+const LEFT_MARGIN  = 120;
+const RIGHT_MARGIN = 120;
+const USABLE_W = IMG_W - LEFT_MARGIN - RIGHT_MARGIN;
+
+const BANNER_Y_START  = 710;
+const BANNER_Y_END    = 974;
+const BANNER_CENTER_Y = (710 + 974) / 2;
+const DONOR_CENTER_Y  = 590;
+
+// ── Vert template list ────────────────────────────────────────────────────────
+let VERT_IMG_LIST  = [];
 let VERT_ACTIVE_IDX = 0;
 
-// ── Static preset templates (always loaded from server) ───────────────────────
 const VERT_STATIC_PRESETS = [
   { src: '/guzeleser.png',     name: 'Güzel Eser - Vacip' },
   { src: '/guzeleserar.png',   name: 'گوزل إيسر - الأضاحي' },
@@ -226,13 +95,6 @@ function _loadVertStaticPresets(callback) {
     img.src = preset.src;
   });
 }
-const VERT_DB_NAME = 'donor_cert_templates_db';
-const VERT_DB_STORE = 'vert_templates';
-const VERT_DB_KEY = 'templates_v1';
-const IMG_H = 1241;
-const LEFT_MARGIN  = 120;
-const RIGHT_MARGIN = 120;
-const USABLE_W = IMG_W - LEFT_MARGIN - RIGHT_MARGIN;
 
 function _getActiveVertTemplate() {
   return VERT_IMG_LIST.length > 0 ? VERT_IMG_LIST[VERT_ACTIVE_IDX] : null;
@@ -243,105 +105,184 @@ function _getVertTemplateName(fileName) {
   return name || 'template';
 }
 
-function _openVertTemplateDB() {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(VERT_DB_NAME, 1);
-    request.onupgradeneeded = function() {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(VERT_DB_STORE)) db.createObjectStore(VERT_DB_STORE);
-    };
-    request.onsuccess = function() { resolve(request.result); };
-    request.onerror = function() { reject(request.error); };
-  });
-}
-
 async function saveVertTemplates() {
   if (!window.indexedDB) return;
   try {
-    const db = await _openVertTemplateDB();
     const userTemplates = VERT_IMG_LIST.filter(t => !t.isStatic);
-    const staticCount = VERT_IMG_LIST.length - userTemplates.length;
-    const stored = {
-      activeIdx: Math.max(0, VERT_ACTIVE_IDX - staticCount),
-      templates: userTemplates.map(template => ({
-        name: template.name,
-        dataUrl: template.dataUrl,
-      })),
-    };
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(VERT_DB_STORE, 'readwrite');
-      tx.objectStore(VERT_DB_STORE).put(stored, VERT_DB_KEY);
-      tx.oncomplete = resolve;
-      tx.onerror = function() { reject(tx.error); };
-    });
-    db.close();
-  } catch (error) {
-    console.warn('Could not save 3:4 templates.', error);
+    const staticCount   = VERT_IMG_LIST.length - userTemplates.length;
+    const activeUserIdx = Math.max(0, VERT_ACTIVE_IDX - staticCount);
+    await TemplateStorage.save(userTemplates, activeUserIdx);
+  } catch (e) {
+    console.warn('saveVertTemplates failed', e);
   }
 }
 
 async function loadVertTemplates() {
-  // Always load static presets first
+  // Load static presets first
   await new Promise(resolve => {
     _loadVertStaticPresets(function(presets) {
-      // Merge: keep only user-uploaded entries (non-static) from existing list
       const userUploaded = VERT_IMG_LIST.filter(t => !t.isStatic);
       VERT_IMG_LIST = [...presets, ...userUploaded];
       resolve();
     });
   });
 
-  // Then restore user-uploaded templates from IndexedDB
+  // Restore user-uploaded from IndexedDB
   if (!window.indexedDB) {
     updateVertTemplatesList();
     if (VERT_IMG_LIST.length > 0) renderVert();
     return;
   }
   try {
-    const db = await _openVertTemplateDB();
-    const stored = await new Promise((resolve, reject) => {
-      const tx = db.transaction(VERT_DB_STORE, 'readonly');
-      const request = tx.objectStore(VERT_DB_STORE).get(VERT_DB_KEY);
-      request.onsuccess = function() { resolve(request.result); };
-      request.onerror = function() { reject(request.error); };
-    });
-    db.close();
+    const stored = await TemplateStorage.load();
     if (stored && Array.isArray(stored.templates) && stored.templates.length) {
       const userTemplates = await Promise.all(stored.templates.map(template => new Promise(resolve => {
         const img = new Image();
-        img.onload = function() {
-          resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl });
-        };
+        img.onload  = function() { resolve({ img, name: template.name || 'template', dataUrl: template.dataUrl }); };
         img.onerror = function() { resolve(null); };
         img.src = template.dataUrl;
       })));
       const staticPresets = VERT_IMG_LIST.filter(t => t.isStatic);
       VERT_IMG_LIST = [...staticPresets, ...userTemplates.filter(Boolean)];
-      // Shift active index to account for static presets at the front
       const savedIdx = Number(stored.activeIdx) || 0;
       VERT_ACTIVE_IDX = Math.min(
         staticPresets.length + savedIdx,
         Math.max(0, VERT_IMG_LIST.length - 1)
       );
     }
-  } catch (error) {
-    console.warn('Could not restore 3:4 templates.', error);
+  } catch (e) {
+    console.warn('loadVertTemplates failed', e);
   }
   updateVertTemplatesList();
   if (VERT_IMG_LIST.length > 0) renderVert();
 }
 
-function toggleAuto(lang, field) {
-  const autoId = `${lang}-${field}-auto`;
-  const sliderId = `${lang}-${field}-size`;
-  const slider = document.getElementById(sliderId);
-  const isAuto = document.getElementById(autoId).checked;
-  slider.disabled = isAuto;
-  slider.style.opacity = isAuto ? "0.4" : "1";
-  if (lang === "ar") renderArabic();
-  else if (lang === "en") renderEnglish();
-  else if (lang === "vt") renderVert();
-  else renderOrgs();
+// ── Vacip template mode ───────────────────────────────────────────────────────
+let VK_TEMPLATE_MODE = 'auto';
+
+function _hideVKPromptIfReady() {
+  if ((VK_AR_IMG && VK_AR_IMG.naturalWidth) || (VK_TR_IMG && VK_TR_IMG.naturalWidth) ||
+      (VK_SADAKA_IMG && VK_SADAKA_IMG.naturalWidth) || (VK_NAFILE_IMG && VK_NAFILE_IMG.naturalWidth)) {
+    const prompt = document.getElementById('vk-upload-prompt');
+    if (prompt) prompt.style.display = 'none';
+    _updateVKStatus();
+  }
+}
+
+function _updateVKStatus() {
+  const hasTR = VK_TR_IMG && VK_TR_IMG.naturalWidth;
+  const hasAR = VK_AR_IMG && VK_AR_IMG.naturalWidth;
+  const tr = document.getElementById('vk-upload-tr-badge');
+  const ar = document.getElementById('vk-upload-ar-badge');
+  if (tr) tr.textContent = hasTR ? '✓' : '—';
+  if (ar) ar.textContent = hasAR ? '✓' : '—';
+}
+
+function _isArabic(text) {
+  return /[؀-ۿ]/.test(text);
+}
+
+function setVKTemplate(mode) {
+  VK_TEMPLATE_MODE = mode;
+  ['auto','arabic','turkish','sadaka','nafile'].forEach(m => {
+    const btn = document.getElementById('vk-tpl-' + m);
+    if (btn) btn.classList.toggle('vk-tpl-active', m === mode);
+  });
+  renderVacip();
+  if (typeof saveState === 'function') saveState();
+}
+
+function _getVKImg(donorText) {
+  if (VK_TEMPLATE_MODE === 'arabic')  return VK_AR_IMG;
+  if (VK_TEMPLATE_MODE === 'turkish') return VK_TR_IMG;
+  if (VK_TEMPLATE_MODE === 'sadaka')  return VK_SADAKA_IMG;
+  if (VK_TEMPLATE_MODE === 'nafile')  return VK_NAFILE_IMG;
+  return _isArabic(donorText) ? VK_AR_IMG : VK_TR_IMG;
+}
+
+// ── Org slot per-slot settings ────────────────────────────────────────────────
+const ORG_SLOT_FIELD_IDS = [
+  'org-donor','org-project','org-batch-names','org-batch-group-size',
+  'org-donor-font','org-proj-font','org-donor-dir','org-proj-dir','org-donor-align','org-proj-align',
+  'org-donor-size','org-proj-size',
+  'org-donor-y','org-proj-y',
+  'org-donor-x','org-proj-x',
+];
+const ORG_SLOT_CHECKBOX_IDS = [
+  'org-donor-enabled','org-proj-enabled',
+  'org-donor-auto','org-proj-auto',
+];
+const ORG_SLOT_DEFAULTS = {
+  'org-donor': '', 'org-project': '', 'org-batch-names': '', 'org-batch-group-size': '1',
+  'org-donor-font': 'Amiri', 'org-proj-font': 'Amiri',
+  'org-donor-dir': 'rtl', 'org-proj-dir': 'rtl',
+  'org-donor-align': 'center', 'org-proj-align': 'center',
+  'org-donor-size': '64', 'org-proj-size': '72',
+  'org-donor-y': '590', 'org-proj-y': '842',
+  'org-donor-x': '877', 'org-proj-x': '877',
+};
+const ORG_SLOT_CHECKBOX_DEFAULTS = {
+  'org-donor-enabled': true, 'org-proj-enabled': true,
+  'org-donor-auto': true, 'org-proj-auto': true,
+};
+const ORG_SLOT_SETTINGS = { stk: null, ummetin: null, kayra: null, custom: null };
+
+function _saveOrgSlotToMemory(slot) {
+  const snapshot = { fields: {}, checkboxes: {} };
+  ORG_SLOT_FIELD_IDS.forEach(id => { const el = document.getElementById(id); if (el) snapshot.fields[id] = el.value; });
+  ORG_SLOT_CHECKBOX_IDS.forEach(id => { const el = document.getElementById(id); if (el) snapshot.checkboxes[id] = el.checked; });
+  ORG_SLOT_SETTINGS[slot] = snapshot;
+}
+
+function _loadOrgSlotFromMemory(slot) {
+  const snapshot = ORG_SLOT_SETTINGS[slot];
+  ORG_SLOT_FIELD_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = snapshot ? (snapshot.fields[id] ?? ORG_SLOT_DEFAULTS[id] ?? '') : (ORG_SLOT_DEFAULTS[id] ?? '');
+  });
+  ORG_SLOT_CHECKBOX_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = snapshot ? (snapshot.checkboxes[id] ?? ORG_SLOT_CHECKBOX_DEFAULTS[id] ?? true) : (ORG_SLOT_CHECKBOX_DEFAULTS[id] ?? true);
+  });
+  ['org-donor-size','org-proj-size','org-donor-y','org-proj-y','org-donor-x','org-proj-x'].forEach(id => {
+    const el   = document.getElementById(id);
+    const valEl = document.getElementById(id + '-val');
+    if (el && valEl) valEl.textContent = el.value;
+  });
+}
+
+function selectOrgSlot(slot) {
+  _saveOrgSlotToMemory(ORG_ACTIVE_SLOT);
+  ORG_ACTIVE_SLOT = slot;
+  document.querySelectorAll('.org-slot-btn').forEach(b => b.classList.remove('org-slot-active'));
+  const btn = document.getElementById('org-slot-' + slot);
+  if (btn) btn.classList.add('org-slot-active');
+  _loadOrgSlotFromMemory(slot);
+  renderOrgs();
+  if (typeof saveState === 'function') saveState();
+}
+
+// ── Font and direction helpers (DOM-bound) ────────────────────────────────────
+function getFont(lang, field) {
+  const el = document.getElementById(`${lang}-${field}-font`);
+  return el ? el.value : 'Amiri';
+}
+
+function _fieldEnabled(lang, field) {
+  const el = document.getElementById(`${lang}-${field}-enabled`);
+  return el ? el.checked : true;
+}
+
+function getDirection(lang, field, text) {
+  const el = document.getElementById(`${lang}-${field}-dir`);
+  return _resolveTextDirection(el ? el.value : 'rtl', text);
+}
+
+function getAlignment(lang, field) {
+  const el = document.getElementById(`${lang}-${field}-align`);
+  return el ? el.value : 'center';
 }
 
 function getSize(lang, field, ctx, text, maxWidth, maxSize, minSize, fontFace) {
@@ -356,77 +297,108 @@ function getSize(lang, field, ctx, text, maxWidth, maxSize, minSize, fontFace) {
     document.getElementById(`${lang}-${field}-size`).value = size;
     document.getElementById(`${lang}-${field}-size-val`).textContent = size;
     return size;
-  } else {
-    return parseInt(document.getElementById(`${lang}-${field}-size`).value);
   }
+  return parseInt(document.getElementById(`${lang}-${field}-size`).value);
 }
 
-function getFont(lang, field) {
-  const el = document.getElementById(`${lang}-${field}-font`);
-  return el ? el.value : "Amiri";
+function toggleAuto(lang, field) {
+  const autoId  = `${lang}-${field}-auto`;
+  const sliderId = `${lang}-${field}-size`;
+  const slider  = document.getElementById(sliderId);
+  const isAuto  = document.getElementById(autoId).checked;
+  slider.disabled = isAuto;
+  slider.style.opacity = isAuto ? '0.4' : '1';
+  if (lang === 'ar' || lang === 'ar-donor' || lang === 'ar-proj') renderArabic();
+  else if (lang === 'en') renderEnglish();
+  else if (lang === 'vt') renderVert();
+  else if (lang === 'vk') renderVacip();
+  else if (lang.startsWith('ct-')) _ctRender(lang.slice(3));
+  else renderOrgs();
 }
 
-function _fieldEnabled(lang, field) {
-  const el = document.getElementById(`${lang}-${field}-enabled`);
-  return el ? el.checked : true;
+// ── Settings resolver ─────────────────────────────────────────────────────────
+function _resolveSettings(lang, s) {
+  const g   = (id) => document.getElementById(id);
+  const gv  = (id, def) => { const el = g(id); return el ? parseInt(el.value) : def; };
+  const enabledEl = (id) => { const el = g(id); return el ? el.checked : true; };
+
+  const defaults = CertificateSettings();
+
+  return {
+    donorFont    : s?.donorFont    ?? getFont(lang, 'donor'),
+    projFont     : s?.projFont     ?? getFont(lang, 'proj'),
+    donorX       : s?.donorX       ?? gv(`${lang}-donor-x`,   defaults.donorX),
+    donorY       : s?.donorY       ?? gv(`${lang}-donor-y`,   defaults.donorY),
+    projX        : s?.projX        ?? gv(`${lang}-proj-x`,    defaults.projX),
+    projY        : s?.projY        ?? gv(`${lang}-proj-y`,    defaults.projY),
+    donorSize    : s?.donorSize    ?? gv(`${lang}-donor-size`, defaults.donorSize),
+    projSize     : s?.projSize     ?? gv(`${lang}-proj-size`,  defaults.projSize),
+    donorAuto    : s?.donorAuto    ?? (g(`${lang}-donor-auto`) ? g(`${lang}-donor-auto`).checked : true),
+    projAuto     : s?.projAuto     ?? (g(`${lang}-proj-auto`)  ? g(`${lang}-proj-auto`).checked  : true),
+    donorEnabled : s?.donorEnabled ?? enabledEl(`${lang}-donor-enabled`),
+    projEnabled  : s?.projEnabled  ?? enabledEl(`${lang}-proj-enabled`),
+    donorMaxW    : s?.donorMaxW    ?? gv(`${lang}-donor-maxw`, defaults.donorMaxW),
+    projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  defaults.projMaxW),
+    donorColor   : s?.donorColor   ?? ((g(`${lang}-donor-color`) || {}).value || defaults.donorColor),
+    projColor    : s?.projColor    ?? ((g(`${lang}-proj-color`)  || {}).value || defaults.projColor),
+    donorDir     : s?.donorDir     ?? ((g(`${lang}-donor-dir`)   || {}).value || defaults.donorDir),
+    projDir      : s?.projDir      ?? ((g(`${lang}-proj-dir`)    || {}).value || defaults.projDir),
+    donorAlign   : s?.donorAlign   ?? ((g(`${lang}-donor-align`) || {}).value || defaults.donorAlign),
+    projAlign    : s?.projAlign    ?? ((g(`${lang}-proj-align`)  || {}).value || defaults.projAlign),
+    donorLineH   : s?.donorLineH   ?? gv(`${lang}-donor-lineh`, defaults.donorLineH),
+  };
 }
 
-function _resolveTextDirection(mode, text) {
-  if (mode === 'ltr' || mode === 'rtl') return mode;
-  return /[\u0600-\u06FF]/.test(text || '') ? 'rtl' : 'ltr';
+// ── drawCertTextDirect — calls CanvasRenderer ─────────────────────────────────
+function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
+  const s = _resolveSettings(lang, settings || null);
+  CanvasRenderer.drawText(ctx, donorText, projectText, s);
 }
 
-function getDirection(lang, field, text) {
-  const el = document.getElementById(`${lang}-${field}-dir`);
-  return _resolveTextDirection(el ? el.value : 'rtl', text);
-}
-
-function getAlignment(lang, field) {
-  const el = document.getElementById(`${lang}-${field}-align`);
-  return el ? el.value : 'center';
-}
-
+// Legacy drawCertText (kept for compatibility — called from renderArabic/renderEnglish)
 function drawCertText(ctx, donorText, projectText, lang) {
-  ctx.textBaseline = "middle";
-
-  const donorFont = getFont(lang, "donor");
-  const projFont  = getFont(lang, "proj");
-
-  const donorX = parseInt(document.getElementById(`${lang}-donor-x`).value);
-  const donorY = parseInt(document.getElementById(`${lang}-donor-y`).value);
-  const projX  = parseInt(document.getElementById(`${lang}-proj-x`).value);
-  const projY  = parseInt(document.getElementById(`${lang}-proj-y`).value);
-
-  // ---- PROJECT NAME ----
-  if (_fieldEnabled(lang, "proj")) {
-    const projLines = projectText.trim().split("\n").filter(Boolean);
-    const projText = projLines.join(" | ");
-    const projSize = getSize(lang, "proj", ctx, projText, USABLE_W * 0.85, 72, 28, projFont);
-    ctx.font = `bold ${projSize}px "${projFont}", serif`;
-    ctx.fillStyle = "#FFFFFF";
-    ctx.direction = getDirection(lang, "proj", projText);
-    ctx.textAlign = getAlignment(lang, "proj");
-    ctx.fillText(projText, projX, projY);
-  }
-
-  // ---- DONOR NAME ----
-  if (_fieldEnabled(lang, "donor")) {
-    const donorLines = donorText.trim().split("\n").filter(Boolean);
-    const totalLines = donorLines.length || 1;
-    const lineSpacing = Math.min(90, 244 / (totalLines + 0.5));
-    const longestLine = donorLines.reduce((a,b) => a.length > b.length ? a : b, "");
-    const donorSize = getSize(lang, "donor", ctx, longestLine, USABLE_W * 0.8, 64, 22, donorFont);
-    ctx.font = `bold ${donorSize}px "${donorFont}", serif`;
-    ctx.fillStyle = "#1e2f5a";
-    ctx.textAlign = getAlignment(lang, "donor");
-    const startY = donorY - ((totalLines - 1) * lineSpacing) / 2;
-    donorLines.forEach((line, i) => {
-      ctx.direction = getDirection(lang, "donor", line);
-      ctx.fillText(line.trim(), donorX, startY + i * lineSpacing);
-    });
-  }
+  drawCertTextDirect(ctx, donorText, projectText, lang, null);
 }
 
+// ── Render functions ──────────────────────────────────────────────────────────
+function renderOrgs() {
+  const img = ORG_IMGS[ORG_ACTIVE_SLOT];
+  if (!img || !img.complete || !img.naturalWidth) {
+    document.getElementById('org-status').textContent = '⚠ ارفع قالباً للجهة المختارة أولاً';
+    return;
+  }
+  const canvas = document.getElementById('canvas-orgs-offscreen');
+  const ctx    = canvas.getContext('2d');
+  const donor  = document.getElementById('org-donor').value   || 'اسم الجهة';
+  const project= document.getElementById('org-project').value || 'اسم المشروع';
+  ctx.clearRect(0, 0, IMG_W, IMG_H);
+  ctx.drawImage(img, 0, 0, IMG_W, IMG_H);
+  drawCertTextDirect(ctx, donor, project, 'org', null);
+  document.getElementById('org-upload-prompt').style.display = 'none';
+  const wrapper = document.getElementById('org-canvas-wrapper');
+  if (wrapper) wrapper.style.display = 'block';
+  document.getElementById('org-status').textContent = '✓ اللوحة جاهزة للتحميل';
+}
+
+function renderVacip() {
+  const donor  = document.getElementById('vk-donor').value   || 'اسم المتبرع';
+  const project= document.getElementById('vk-project').value || '';
+  _hideVKPromptIfReady();
+  const img = _getVKImg(donor);
+  if (!img || !img.naturalWidth) {
+    const needed = _isArabic(donor) ? 'القالب العربي' : 'القالب التركي';
+    document.getElementById('vk-status').textContent = `⚠ يرجى رفع ${needed} أولاً`;
+    return;
+  }
+  const canvas = document.getElementById('canvas-vacip');
+  const ctx    = canvas.getContext('2d');
+  ctx.clearRect(0, 0, IMG_W, IMG_H);
+  ctx.drawImage(img, 0, 0, IMG_W, IMG_H);
+  drawCertTextDirect(ctx, donor, project, 'vk', null);
+  const wrapper = document.getElementById('vk-canvas-wrapper');
+  if (wrapper.style.display === 'none') wrapper.style.display = 'block';
+  document.getElementById('vk-status').textContent = '✓ اللوحة جاهزة للتحميل';
+}
 
 function renderVert() {
   const template = _getActiveVertTemplate();
@@ -435,8 +407,8 @@ function renderVert() {
     document.getElementById('vt-status').textContent = '⚠ ارفع قالباً أولاً';
     return;
   }
-  const canvas = document.getElementById('canvas-vert');
-  const ctx = canvas.getContext('2d');
+  const canvas  = document.getElementById('canvas-vert');
+  const ctx     = canvas.getContext('2d');
   const donor   = document.getElementById('vt-donor').value   || 'اسم المتبرع';
   const project = document.getElementById('vt-project').value || 'اسم المشروع';
   ctx.clearRect(0, 0, VERT_W, VERT_H);
@@ -448,17 +420,39 @@ function renderVert() {
   document.getElementById('vt-status').textContent = '✓ اللوحة جاهزة للتحميل';
 }
 
+// Stub implementations for Arabic/English tabs (no panel in current HTML)
+function renderArabic() {
+  const canvas = document.getElementById('canvas-arabic');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!AR_IMG || !AR_IMG.complete || !AR_IMG.naturalWidth) return;
+  const donor   = (document.getElementById('ar-donor')   || {}).value || 'اسم المتبرع';
+  const project = (document.getElementById('ar-project') || {}).value || 'اسم المشروع';
+  ctx.clearRect(0, 0, IMG_W, IMG_H);
+  ctx.drawImage(AR_IMG, 0, 0);
+  drawCertText(ctx, donor, project, 'ar');
+}
+
+function renderEnglish() {
+  if (!EN_IMG || !EN_IMG.complete || !EN_IMG.naturalWidth) return;
+  const canvas = document.getElementById('canvas-english');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const donor   = (document.getElementById('en-donor')   || {}).value || 'اسم المتبرع';
+  const project = (document.getElementById('en-project') || {}).value || 'اسم المشروع';
+  ctx.clearRect(0, 0, IMG_W, IMG_H);
+  ctx.drawImage(EN_IMG, 0, 0);
+  drawCertText(ctx, donor, project, 'en');
+}
+
+// ── Template loaders ──────────────────────────────────────────────────────────
 function loadVertTemplate(input) {
   const files = Array.from(input.files);
   if (!files.length) return;
   let loaded = 0;
   files.forEach(function(file) {
     fixImageOrientation(file, function(dataUrl, img) {
-      VERT_IMG_LIST.push({
-        img,
-        name: _getVertTemplateName(file.name),
-        dataUrl,
-      });
+      VERT_IMG_LIST.push({ img, name: _getVertTemplateName(file.name), dataUrl });
       loaded++;
       if (loaded === files.length) {
         VERT_ACTIVE_IDX = VERT_IMG_LIST.length - 1;
@@ -472,21 +466,23 @@ function loadVertTemplate(input) {
 }
 
 function updateVertTemplatesList() {
-  const grid = document.getElementById('vt-templates-grid');
+  const grid    = document.getElementById('vt-templates-grid');
   const listDiv = document.getElementById('vt-templates-list');
   if (!grid || !VERT_IMG_LIST.length) {
     if (listDiv) listDiv.style.display = 'none';
     const wrapper = document.getElementById('vt-canvas-wrapper');
-    const prompt = document.getElementById('vt-upload-prompt');
+    const prompt  = document.getElementById('vt-upload-prompt');
     if (wrapper) wrapper.style.display = 'none';
-    if (prompt) prompt.style.display = 'flex';
+    if (prompt)  prompt.style.display  = 'flex';
     return;
   }
   listDiv.style.display = 'block';
   grid.innerHTML = '';
   VERT_IMG_LIST.forEach(function(template, idx) {
     const thumb = document.createElement('div');
-    thumb.style.cssText = 'position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid ' + (idx === VERT_ACTIVE_IDX ? '#c8a45a' : 'rgba(200,164,90,0.3)') + ';width:55px;height:73px;flex-shrink:0;';
+    thumb.style.cssText = 'position:relative;cursor:pointer;border-radius:6px;overflow:hidden;border:2px solid ' +
+      (idx === VERT_ACTIVE_IDX ? '#c8a45a' : 'rgba(200,164,90,0.3)') +
+      ';width:55px;height:73px;flex-shrink:0;';
     thumb.title = template.name;
     const cv = document.createElement('canvas');
     cv.width = 55; cv.height = 73;
@@ -518,85 +514,6 @@ function updateVertTemplatesList() {
   });
 }
 
-function renderArabic() {
-  const canvas = document.getElementById("canvas-arabic");
-  const ctx = canvas.getContext("2d");
-  const donor   = document.getElementById("ar-donor").value || "اسم المتبرع";
-  const project = document.getElementById("ar-project").value || "اسم المشروع";
-
-  ctx.clearRect(0, 0, IMG_W, IMG_H);
-  if (AR_IMG.complete && AR_IMG.naturalWidth > 0) {
-    ctx.drawImage(AR_IMG, 0, 0);
-    drawCertText(ctx, donor, project, "ar");
-
-    // Show toggle button and canvas
-    const toggle = document.getElementById("ar-toggle");
-    const wrapper = document.getElementById("ar-canvas-wrapper");
-    toggle.style.display = "block";
-    if (wrapper.style.display === "none") {
-      // first render — show canvas automatically
-      wrapper.style.display = "block";
-      toggle.textContent = "↑ إخفاء المعاينة";
-    }
-    document.getElementById("ar-status").textContent = "✓ اللوحة جاهزة للتحميل";
-  }
-}
-
-// ===================== VACİP KURBAN / الأضاحي TAB =====================
-
-function _isArabic(text) {
-  return /[؀-ۿ]/.test(text);
-}
-
-let VK_TEMPLATE_MODE = 'auto'; // 'auto' | 'arabic' | 'turkish' | 'sadaka' | 'nafile'
-
-function setVKTemplate(mode) {
-  VK_TEMPLATE_MODE = mode;
-  ['auto','arabic','turkish','sadaka','nafile'].forEach(m => {
-    const btn = document.getElementById('vk-tpl-' + m);
-    if (btn) btn.classList.toggle('vk-tpl-active', m === mode);
-  });
-  renderVacip();
-  if (typeof saveState === 'function') saveState();
-}
-
-function _getVKImg(donorText) {
-  if (VK_TEMPLATE_MODE === 'arabic')  return VK_AR_IMG;
-  if (VK_TEMPLATE_MODE === 'turkish') return VK_TR_IMG;
-  if (VK_TEMPLATE_MODE === 'sadaka')  return VK_SADAKA_IMG;
-  if (VK_TEMPLATE_MODE === 'nafile')  return VK_NAFILE_IMG;
-  return _isArabic(donorText) ? VK_AR_IMG : VK_TR_IMG;
-}
-
-function _updateVKStatus() {
-  const hasTR = VK_TR_IMG && VK_TR_IMG.naturalWidth;
-  const hasAR = VK_AR_IMG && VK_AR_IMG.naturalWidth;
-  const tr = document.getElementById('vk-upload-tr-badge');
-  const ar = document.getElementById('vk-upload-ar-badge');
-  if (tr) tr.textContent = hasTR ? '✓' : '—';
-  if (ar) ar.textContent = hasAR ? '✓' : '—';
-}
-
-function renderVacip() {
-  const donor   = document.getElementById("vk-donor").value   || "اسم المتبرع";
-  const project = document.getElementById("vk-project").value || "";
-  _hideVKPromptIfReady();
-  const img = _getVKImg(donor);
-  if (!img || !img.naturalWidth) {
-    const needed = _isArabic(donor) ? 'القالب العربي' : 'القالب التركي';
-    document.getElementById("vk-status").textContent = `⚠ يرجى رفع ${needed} أولاً`;
-    return;
-  }
-  const canvas = document.getElementById("canvas-vacip");
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, IMG_W, IMG_H);
-  ctx.drawImage(img, 0, 0, IMG_W, IMG_H);
-  drawCertText(ctx, donor, project, "vk");
-  const wrapper = document.getElementById('vk-canvas-wrapper');
-  if (wrapper.style.display === 'none') wrapper.style.display = 'block';
-  document.getElementById("vk-status").textContent = "✓ اللوحة جاهزة للتحميل";
-}
-
 function loadVacipTemplate(input, type) {
   const file = input.files[0];
   if (!file) return;
@@ -609,130 +526,16 @@ function loadVacipTemplate(input, type) {
   });
 }
 
-// ===================== ORGS MULTI-SLOT =====================
-
-Object.defineProperty(window, 'ORG_IMG', {
-  get: () => ORG_IMGS[ORG_ACTIVE_SLOT],
-});
-
-// Per-slot field IDs to snapshot when switching
-const ORG_SLOT_FIELD_IDS = [
-  'org-donor','org-project','org-batch-names','org-batch-group-size',
-  'org-donor-font','org-proj-font','org-donor-dir','org-proj-dir','org-donor-align','org-proj-align',
-  'org-donor-size','org-proj-size',
-  'org-donor-y','org-proj-y',
-  'org-donor-x','org-proj-x',
-];
-const ORG_SLOT_CHECKBOX_IDS = [
-  'org-donor-enabled','org-proj-enabled',
-  'org-donor-auto','org-proj-auto',
-];
-
-// Default values for each org slot field
-const ORG_SLOT_DEFAULTS = {
-  'org-donor': '', 'org-project': '', 'org-batch-names': '', 'org-batch-group-size': '1',
-  'org-donor-font': 'Amiri', 'org-proj-font': 'Amiri',
-  'org-donor-dir': 'rtl', 'org-proj-dir': 'rtl',
-  'org-donor-align': 'center', 'org-proj-align': 'center',
-  'org-donor-size': '64', 'org-proj-size': '72',
-  'org-donor-y': '590', 'org-proj-y': '842',
-  'org-donor-x': '877', 'org-proj-x': '877',
-};
-const ORG_SLOT_CHECKBOX_DEFAULTS = {
-  'org-donor-enabled': true, 'org-proj-enabled': true,
-  'org-donor-auto': true, 'org-proj-auto': true,
-};
-
-// In-memory per-slot settings store
-const ORG_SLOT_SETTINGS = { stk: null, ummetin: null, kayra: null, custom: null };
-
-function _saveOrgSlotToMemory(slot) {
-  const snapshot = { fields: {}, checkboxes: {} };
-  ORG_SLOT_FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) snapshot.fields[id] = el.value;
-  });
-  ORG_SLOT_CHECKBOX_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (el) snapshot.checkboxes[id] = el.checked;
-  });
-  ORG_SLOT_SETTINGS[slot] = snapshot;
-}
-
-function _loadOrgSlotFromMemory(slot) {
-  const snapshot = ORG_SLOT_SETTINGS[slot];
-  ORG_SLOT_FIELD_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.value = snapshot ? (snapshot.fields[id] ?? ORG_SLOT_DEFAULTS[id] ?? '') : (ORG_SLOT_DEFAULTS[id] ?? '');
-  });
-  ORG_SLOT_CHECKBOX_IDS.forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.checked = snapshot ? (snapshot.checkboxes[id] ?? ORG_SLOT_CHECKBOX_DEFAULTS[id] ?? true) : (ORG_SLOT_CHECKBOX_DEFAULTS[id] ?? true);
-  });
-  // Sync slider display values
-  ['org-donor-size','org-proj-size','org-donor-y','org-proj-y','org-donor-x','org-proj-x'].forEach(id => {
-    const el = document.getElementById(id);
-    const valEl = document.getElementById(id + '-val');
-    if (el && valEl) valEl.textContent = el.value;
-  });
-}
-
-function selectOrgSlot(slot) {
-  // Save current slot before switching
-  _saveOrgSlotToMemory(ORG_ACTIVE_SLOT);
-  ORG_ACTIVE_SLOT = slot;
-  document.querySelectorAll('.org-slot-btn').forEach(b => b.classList.remove('org-slot-active'));
-  const btn = document.getElementById(`org-slot-${slot}`);
-  if (btn) btn.classList.add('org-slot-active');
-  // Load the new slot's settings into the UI
-  _loadOrgSlotFromMemory(slot);
-  renderOrgs();
-  if (typeof saveState === 'function') saveState();
-}
-
-function renderOrgs() {
-  const img = ORG_IMGS[ORG_ACTIVE_SLOT];
-  if (!img || !img.complete || !img.naturalWidth) {
-    document.getElementById("org-status").textContent = "⚠ ارفع قالباً للجهة المختارة أولاً";
-    return;
-  }
-  const canvas = document.getElementById("canvas-orgs-offscreen");
-  const ctx = canvas.getContext("2d");
-  const donor   = document.getElementById("org-donor").value || "اسم الجهة";
-  const project = document.getElementById("org-project").value || "اسم المشروع";
-  ctx.clearRect(0, 0, IMG_W, IMG_H);
-  ctx.drawImage(img, 0, 0, IMG_W, IMG_H);
-  drawCertText(ctx, donor, project, "org");
-  document.getElementById('org-upload-prompt').style.display = 'none';
-  const wrapper = document.getElementById('org-canvas-wrapper');
-  if (wrapper) wrapper.style.display = 'block';
-  document.getElementById("org-status").textContent = "✓ اللوحة جاهزة للتحميل";
-}
-
 function loadOrgTemplate(input, slot) {
   const file = input.files[0];
   if (!file) return;
   const s = slot || ORG_ACTIVE_SLOT;
   fixImageOrientation(file, function(dataUrl, img) {
     ORG_IMGS[s] = img;
-    const badge = document.getElementById(`org-status-${s}`);
+    const badge = document.getElementById('org-status-' + s);
     if (badge) badge.textContent = '✓';
     selectOrgSlot(s);
   });
-}
-
-function renderEnglish() {
-  if (!EN_IMG || !EN_IMG.complete || !EN_IMG.naturalWidth) return;
-  const canvas = document.getElementById("canvas-english");
-  const ctx = canvas.getContext("2d");
-  const donor   = document.getElementById("en-donor").value || "اسم المتبرع";
-  const project = document.getElementById("en-project").value || "اسم المشروع";
-  ctx.clearRect(0, 0, IMG_W, IMG_H);
-  ctx.drawImage(EN_IMG, 0, 0, IMG_W, IMG_H);
-  drawCertText(ctx, donor, project, "en");
-  document.getElementById("en-status").textContent = "✓ اللوحة جاهزة للتحميل";
 }
 
 function loadEnglishTemplate(input) {
@@ -740,18 +543,59 @@ function loadEnglishTemplate(input) {
   if (!file) return;
   fixImageOrientation(file, function(dataUrl, img) {
     EN_IMG = img;
-    document.getElementById('en-upload-prompt').style.display = 'none';
-    document.getElementById('en-canvas-wrapper').style.display = 'block';
+    const prompt  = document.getElementById('en-upload-prompt');
+    const wrapper = document.getElementById('en-canvas-wrapper');
+    if (prompt)  prompt.style.display  = 'none';
+    if (wrapper) wrapper.style.display = 'block';
     renderEnglish();
   });
 }
 
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab, btnEl) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const tabEl = document.getElementById('tab-' + tab);
+  if (tabEl) tabEl.classList.add('active');
+  const btn = btnEl || document.getElementById('tabBtn-' + tab);
+  if (btn) btn.classList.add('active');
+  updateBottomNav(tab);
+  if (tab === 'orgs')       renderOrgs();
+  else if (tab === 'vacip') renderVacip();
+  else if (tab === 'vert')  renderVert();
+  else                      _ctRender(tab);
+}
 
-// Returns the org/tab name label for use in filenames
+function updateBottomNav(tabId) {
+  document.querySelectorAll('.bottom-nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('navBtn-' + tabId);
+  if (btn) btn.classList.add('active');
+}
+
+// ── Preview toggle ────────────────────────────────────────────────────────────
+function togglePreview(lang) {
+  const prefixMap = { orgs: 'org', english: 'en', arabic: 'ar' };
+  const prefix = prefixMap[lang] || lang;
+  const wrapper = document.getElementById(prefix + '-canvas-wrapper');
+  const btn     = document.getElementById(prefix + '-toggle');
+  if (!wrapper) return;
+  if (wrapper.style.display === 'none') {
+    wrapper.style.display = 'block';
+    if (btn) btn.textContent = '↑ إخفاء المعاينة';
+    if (lang === 'arabic')  renderArabic();
+    else if (lang === 'english') renderEnglish();
+    else renderOrgs();
+  } else {
+    wrapper.style.display = 'none';
+    if (btn) btn.textContent = '👁 إظهار المعاينة ↓';
+  }
+}
+
+// ── File naming ───────────────────────────────────────────────────────────────
 function _getTabLabel(lang) {
-  if (lang === 'orgs')  return _getOrgSlotName();
-  if (lang === 'vacip') return 'Güzel Eser';
-  if (lang === 'vert')  return 'قياس 3:4';
+  if (lang === 'orgs')   return _getOrgSlotName();
+  if (lang === 'vacip')  return 'Güzel Eser';
+  if (lang === 'vert')   return 'قياس 3:4';
   if (lang.startsWith('ct-')) {
     const ct = CUSTOM_TABS.find(t => t.id === lang.slice(3));
     return ct ? ct.name : 'جهة';
@@ -759,12 +603,10 @@ function _getTabLabel(lang) {
   return '';
 }
 
-// Returns the active org slot display name
 function _getOrgSlotName() {
   if (ORG_ACTIVE_SLOT === 'stk')     return 'STK';
   if (ORG_ACTIVE_SLOT === 'ummetin') return 'ÜMMETİN ABİSİ';
   if (ORG_ACTIVE_SLOT === 'kayra')   return 'KAYRA';
-  // custom slot: try to read from the uploaded file badge or fallback
   return 'الجهة';
 }
 
@@ -778,7 +620,6 @@ function _getVertExportName(number) {
   return `${base}_buyukbas-${number}`;
 }
 
-// Single certificate filename: "اسم المتبرع - الجهة"
 function getFileName(lang) {
   let donor = '';
   if (lang.startsWith('ct-')) {
@@ -795,7 +636,6 @@ function getFileName(lang) {
   return base || 'لوحة';
 }
 
-// Batch filename: "اسم الجهة-عدد التصاميم"
 function getBatchFileName(lang, count) {
   if (lang === 'vert') return _getVertExportName(count);
   const tabLabel = _getTabLabel(lang) || 'إنتاج';
@@ -804,12 +644,13 @@ function getBatchFileName(lang, count) {
 
 function getStatusEl(lang) {
   if (lang.startsWith('ct-')) return document.getElementById('ct-' + lang.slice(3) + '-status');
-  const idMap = { arabic: "ar-status", english: "en-status", orgs: "org-status", vacip: "vk-status", vert: "vt-status" };
-  return document.getElementById(idMap[lang] || "ar-status");
+  const idMap = { arabic: 'ar-status', english: 'en-status', orgs: 'org-status', vacip: 'vk-status', vert: 'vt-status' };
+  return document.getElementById(idMap[lang] || 'ar-status');
 }
 
+// ── Download / share ──────────────────────────────────────────────────────────
 function downloadCert(lang, format) {
-  // Save to history before downloading
+  // Save to history
   try {
     const tabId  = lang.startsWith('ct-') ? lang.slice(3) : lang;
     const isOrgs = lang === 'orgs', isVK = lang === 'vacip', isVert = lang === 'vert', isCT = lang.startsWith('ct-');
@@ -825,7 +666,7 @@ function downloadCert(lang, format) {
         donorSize: parseInt(gv(pid('donor-size'))), projSize: parseInt(gv(pid('proj-size'))),
         donorY: parseInt(gv(pid('donor-y'))), projY: parseInt(gv(pid('proj-y'))),
         donorX: parseInt(gv(pid('donor-x'))), projX: parseInt(gv(pid('proj-x'))),
-        donorMaxW: parseInt(gv(pid('donor-maxw'))||1400), projMaxW: parseInt(gv(pid('proj-maxw'))||1400),
+        donorMaxW: parseInt(gv(pid('donor-maxw')) || 1400), projMaxW: parseInt(gv(pid('proj-maxw')) || 1400),
         donorDir: gv(pid('donor-dir')) || 'rtl', projDir: gv(pid('proj-dir')) || 'rtl',
         donorAlign: gv(pid('donor-align')) || 'center', projAlign: gv(pid('proj-align')) || 'center',
         donorAuto: gb(pid('donor-auto')), projAuto: gb(pid('proj-auto')),
@@ -833,225 +674,46 @@ function downloadCert(lang, format) {
       };
       histSaveSingle(lang, donor, project, settings);
     }
-  } catch(e) {}
+  } catch (e) {}
 
-  const canvasId = lang === 'english'    ? 'canvas-english' :
-                   lang === 'orgs'       ? 'canvas-orgs-offscreen' :
-                   lang === 'vacip'      ? 'canvas-vacip' :
-                 lang === 'vert'       ? 'canvas-vert' :
-                   lang.startsWith('ct-')? 'canvas-' + lang :
-                                           'canvas-arabic';
-  const canvas = document.getElementById(canvasId);
-  const name = getFileName(lang);
+  const canvasId = lang === 'english'     ? 'canvas-english' :
+                   lang === 'orgs'        ? 'canvas-orgs-offscreen' :
+                   lang === 'vacip'       ? 'canvas-vacip' :
+                   lang === 'vert'        ? 'canvas-vert' :
+                   lang.startsWith('ct-') ? 'canvas-ct-' + lang.slice(3) :
+                                            'canvas-arabic';
+  const canvas   = document.getElementById(canvasId);
+  const name     = getFileName(lang);
   const statusEl = getStatusEl(lang);
+
   if (!canvas) { if (statusEl) statusEl.textContent = '❌ لا يوجد قالب للتحميل'; return; }
-  statusEl.textContent = "⏳ جارٍ التحضير...";
 
-  if (format === "pdf") {
-    canvas.toBlob(function(blob) {
-      if (!blob) { statusEl.textContent = '❌ القالب غير مُحمَّل — اضغط معاينة أولاً'; return; }
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const imgData = e.target.result.split(",")[1]; // base64 only
-        const W = canvas.width;
-        const H = canvas.height;
-
-        // Build minimal PDF manually
-        const lines = [];
-        lines.push("%PDF-1.4");
-        // Object 1: catalog
-        const obj1 = "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj";
-        // Object 2: pages
-        const obj2 = `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj`;
-        // Object 3: page (size in pts: 1px = 0.75pt)
-        const wPt = (W * 0.75).toFixed(2);
-        const hPt = (H * 0.75).toFixed(2);
-        const obj3 = `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wPt} ${hPt}] /Contents 5 0 R /Resources << /XObject << /Img 4 0 R >> >> >>\nendobj`;
-        // Object 4: image XObject
-        const imgBytes = atob(imgData);
-        const imgLen = imgBytes.length;
-        const obj4 = `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgLen} >>\nstream\n`;
-        // Object 5: content stream (draw image)
-        const contentStr = `q ${wPt} 0 0 ${hPt} 0 0 cm /Img Do Q`;
-        const contentBytes = contentStr.length;
-        const obj5 = `5 0 obj\n<< /Length ${contentBytes} >>\nstream\n${contentStr}\nendstream\nendobj`;
-
-        // We need a JPEG not PNG for DCTDecode
-        // Re-render canvas as JPEG
-        const jpegData = canvas.toDataURL("image/jpeg", 0.95).split(",")[1];
-        const jpegBytes = atob(jpegData);
-        const jpegLen = jpegBytes.length;
-
-        const obj4b = `4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegLen} >>\nstream\n`;
-
-        // Build PDF as binary
-        let pdf = "%PDF-1.4\n";
-        const offsets = [];
-
-        function addObj(n, str) {
-          offsets[n] = pdf.length;
-          pdf += str + "\n";
-        }
-
-        // We'll build using Uint8Array for binary safety
-        const enc = new TextEncoder();
-        const parts = [];
-        let offset = 0;
-        const byteOffsets = [];
-
-        function pushText(s) {
-          const b = enc.encode(s);
-          parts.push(b);
-          offset += b.length;
-        }
-        function pushBinary(ab) {
-          parts.push(ab);
-          offset += ab.length;
-        }
-
-        pushText("%PDF-1.4\n%\xFF\xFF\xFF\xFF\n");
-
-        byteOffsets[1] = offset;
-        pushText("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
-
-        byteOffsets[2] = offset;
-        pushText("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n");
-
-        byteOffsets[3] = offset;
-        pushText(`3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wPt} ${hPt}] /Contents 5 0 R /Resources << /XObject << /Img 4 0 R >> >> >>\nendobj\n`);
-
-        byteOffsets[4] = offset;
-        pushText(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${W} /Height ${H} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegLen} >>\nstream\n`);
-        // push raw JPEG bytes
-        const jpegArr = new Uint8Array(jpegLen);
-        for (let i = 0; i < jpegLen; i++) jpegArr[i] = jpegBytes.charCodeAt(i);
-        pushBinary(jpegArr);
-        pushText("\nendstream\nendobj\n");
-
-        byteOffsets[5] = offset;
-        pushText(`5 0 obj\n<< /Length ${contentBytes} >>\nstream\n${contentStr}\nendstream\nendobj\n`);
-
-        const xrefOffset = offset;
-        const numObjs = 6;
-        let xref = `xref\n0 ${numObjs}\n0000000000 65535 f \n`;
-        for (let i = 1; i < numObjs; i++) {
-          xref += String(byteOffsets[i]).padStart(10, "0") + " 00000 n \n";
-        }
-        pushText(xref);
-        pushText(`trailer\n<< /Size ${numObjs} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
-
-        // Combine all parts
-        let totalLen = 0;
-        for (const p of parts) totalLen += p.length;
-        const result = new Uint8Array(totalLen);
-        let pos = 0;
-        for (const p of parts) { result.set(p, pos); pos += p.length; }
-
-        const pdfBlob = new Blob([result], { type: "application/pdf" });
-        const url = URL.createObjectURL(pdfBlob);
-        const link = document.createElement("a");
-        link.download = `${name}.pdf`;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 5000);
-        statusEl.textContent = "✓ تم تحميل PDF";
-      };
-      reader.readAsDataURL(blob);
-    }, "image/png");
-    return;
-  }
-
-  // PNG — try toBlob first, fall back to toDataURL
-  try {
-    canvas.toBlob(function(blob) {
-      try {
-        const url = blob ? URL.createObjectURL(blob) : canvas.toDataURL("image/jpeg", 0.95);
-        const link = document.createElement("a");
-        link.download = `${name}.png`;
-        link.href = url;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        if (blob) setTimeout(() => URL.revokeObjectURL(url), 5000);
-        statusEl.textContent = "✓ تم التحميل بنجاح";
-      } catch(e) {
-        statusEl.textContent = "❌ فشل التحميل: " + e.message;
-      }
-    }, "image/png");
-  } catch(e) {
-    // Last resort: dataURL
-    try {
-      const link = document.createElement("a");
-      link.download = `${name}.png`;
-      link.href = canvas.toDataURL("image/jpeg", 0.95);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      statusEl.textContent = "✓ تم التحميل";
-    } catch(e2) {
-      statusEl.textContent = "❌ " + e2.message;
-    }
+  if (format === 'pdf') {
+    Exporter.downloadPdf(canvas, name, statusEl);
+  } else {
+    Exporter.downloadPng(canvas, name, statusEl);
   }
 }
 
 function shareWhatsapp(lang) {
-  const canvasId = lang === 'english' ? 'canvas-english' :
-                   lang === 'orgs'    ? 'canvas-orgs-offscreen' :
-                   lang === 'vacip'   ? 'canvas-vacip' :
-                   lang === 'vert'    ? 'canvas-vert' :
-                   lang.startsWith('ct-') ? 'canvas-' + lang :
-                                        'canvas-arabic';
-  const canvas = document.getElementById(canvasId);
-  const name = getFileName(lang);
+  const canvasId = lang === 'english'     ? 'canvas-english' :
+                   lang === 'orgs'        ? 'canvas-orgs-offscreen' :
+                   lang === 'vacip'       ? 'canvas-vacip' :
+                   lang === 'vert'        ? 'canvas-vert' :
+                   lang.startsWith('ct-') ? 'canvas-ct-' + lang.slice(3) :
+                                            'canvas-arabic';
+  const canvas   = document.getElementById(canvasId);
+  const name     = getFileName(lang);
   const statusEl = getStatusEl(lang);
-
-  canvas.toBlob(function(blob) {
-    if (!blob) { statusEl.textContent = "❌ تعذّر تجهيز الصورة"; return; }
-    const file = new File([blob], `${name}.png`, { type: "image/png" });
-
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file], title: name })
-        .then(() => { statusEl.textContent = "✓ تمت المشاركة"; })
-        .catch(() => { fallbackWhatsapp(canvas, name, statusEl); });
-    } else {
-      fallbackWhatsapp(canvas, name, statusEl);
-    }
-  }, "image/png");
+  Exporter.shareWhatsapp(canvas, name, statusEl);
 }
 
+// Keep legacy fallbackWhatsapp name working
 function fallbackWhatsapp(canvas, name, statusEl) {
-  canvas.toBlob(function(blob) {
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.download = `${name}.png`;
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    setTimeout(() => { window.open("https://web.whatsapp.com", "_blank"); }, 800);
-    statusEl.textContent = "✓ تم تحميل الصورة — افتح واتساب وأرسلها يدوياً";
-  }, "image/png");
+  Exporter.fallback(canvas, name, statusEl);
 }
 
-function togglePreview(lang) {
-  const wrapper = document.getElementById(`${lang === 'orgs' ? 'org' : lang === 'english' ? 'en' : 'ar'}-canvas-wrapper`);
-  const btn = document.getElementById(`${lang === 'orgs' ? 'org' : lang === 'english' ? 'en' : 'ar'}-toggle`);
-  if (wrapper.style.display === 'none') {
-    wrapper.style.display = 'block';
-    btn.textContent = '↑ إخفاء المعاينة';
-    if (lang === 'arabic') renderArabic();
-    else if (lang === 'english') renderEnglish();
-    else renderOrgs();
-  } else {
-    wrapper.style.display = 'none';
-    btn.textContent = '👁 إظهار المعاينة ↓';
-  }
-}
-
-// ===================== BATCH =====================
+// ── Batch ─────────────────────────────────────────────────────────────────────
 const batchOpts = { vt: 'pdf', ar: 'pdf', en: 'pdf', org: 'pdf', vk: 'pdf' };
 
 function selectBatchOpt(prefix, mode) {
@@ -1072,7 +734,6 @@ function drawOnCanvas(canvas, name, project, lang, img, settings, forceImg) {
   const cW = lang === 'vert' ? VERT_W : IMG_W;
   const cH = lang === 'vert' ? VERT_H : IMG_H;
   ctx.clearRect(0, 0, cW, cH);
-  // forceImg = explicit override; otherwise vacip auto-picks by name language
   const actualImg = forceImg || ((lang === 'vacip') ? (_getVKImg(name) || img) : img);
   if (!actualImg || !actualImg.naturalWidth) return;
   ctx.drawImage(actualImg, 0, 0, cW, cH);
@@ -1080,101 +741,18 @@ function drawOnCanvas(canvas, name, project, lang, img, settings, forceImg) {
   drawCertTextDirect(ctx, name, project, l, settings);
 }
 
-// s = optional per-entry settings override; null = read from DOM
-function _resolveSettings(lang, s) {
-  const g = (id) => document.getElementById(id);
-  const gv = (id, def) => { const el = g(id); return el ? parseInt(el.value) : def; };
-  const enabledEl = (id) => { const el = g(id); return el ? el.checked : true; };
-  return {
-    donorFont    : s?.donorFont    ?? getFont(lang, 'donor'),
-    projFont     : s?.projFont     ?? getFont(lang, 'proj'),
-    donorX       : s?.donorX       ?? parseInt(g(`${lang}-donor-x`).value),
-    donorY       : s?.donorY       ?? parseInt(g(`${lang}-donor-y`).value),
-    projX        : s?.projX        ?? parseInt(g(`${lang}-proj-x`).value),
-    projY        : s?.projY        ?? parseInt(g(`${lang}-proj-y`).value),
-    donorSize    : s?.donorSize    ?? parseInt(g(`${lang}-donor-size`).value),
-    projSize     : s?.projSize     ?? parseInt(g(`${lang}-proj-size`).value),
-    donorAuto    : s?.donorAuto    ?? g(`${lang}-donor-auto`).checked,
-    projAuto     : s?.projAuto     ?? g(`${lang}-proj-auto`).checked,
-    donorEnabled : s?.donorEnabled ?? enabledEl(`${lang}-donor-enabled`),
-    projEnabled  : s?.projEnabled  ?? enabledEl(`${lang}-proj-enabled`),
-    donorMaxW    : s?.donorMaxW    ?? gv(`${lang}-donor-maxw`, 1400),
-    projMaxW     : s?.projMaxW     ?? gv(`${lang}-proj-maxw`,  1400),
-    donorColor   : s?.donorColor   ?? ((g(`${lang}-donor-color`) || {}).value || '#1e2f5a'),
-    projColor    : s?.projColor    ?? ((g(`${lang}-proj-color`)  || {}).value || '#ffffff'),
-    donorDir     : s?.donorDir     ?? ((g(`${lang}-donor-dir`) || {}).value || 'rtl'),
-    projDir      : s?.projDir      ?? ((g(`${lang}-proj-dir`)  || {}).value || 'rtl'),
-    donorAlign   : s?.donorAlign   ?? ((g(`${lang}-donor-align`) || {}).value || 'center'),
-    projAlign    : s?.projAlign    ?? ((g(`${lang}-proj-align`)  || {}).value || 'center'),
-    donorLineH   : s?.donorLineH   ?? gv(`${lang}-donor-lineh`, 0),
-  };
-}
-
-function _calcSize(ctx, text, maxWidth, maxSize, minSize, fontFace, autoMode, fixedSize) {
-  if (autoMode) {
-    let size = maxSize;
-    while (size >= minSize) {
-      ctx.font = `bold ${size}px "${fontFace}", serif`;
-      if (ctx.measureText(text).width <= maxWidth) break;
-      size -= 2;
-    }
-    return size;
-  }
-  return fixedSize;
-}
-
-function drawCertTextDirect(ctx, donorText, projectText, lang, settings) {
-  const s   = _resolveSettings(lang, settings || null);
-  ctx.textBaseline = 'middle';
-
-  // Project
-  if (s.projEnabled !== false) {
-    const projLines = projectText.trim().split('\n').filter(Boolean);
-    const projText2 = projLines.join(' | ');
-    const projSize  = _calcSize(ctx, projText2, s.projMaxW ?? USABLE_W * 0.85, 72, 28, s.projFont, s.projAuto, s.projSize);
-    ctx.font = `bold ${projSize}px "${s.projFont}", serif`;
-    ctx.fillStyle = s.projColor || '#ffffff';
-    ctx.direction = _resolveTextDirection(s.projDir, projText2);
-    ctx.textAlign = s.projAlign || 'center';
-    ctx.fillText(projText2, s.projX, s.projY);
-  }
-
-  // Donor
-  if (s.donorEnabled !== false) {
-    const donorLines  = donorText.trim().split('\n').filter(Boolean);
-    const totalLines  = donorLines.length || 1;
-    const autoSpacing = Math.min(90, 244 / (totalLines + 0.5));
-    const lineSpacing = (s.donorLineH && s.donorLineH > 0) ? s.donorLineH : autoSpacing;
-    const longestLine = donorLines.reduce((a, b) => a.length > b.length ? a : b, '');
-    const donorSize   = _calcSize(ctx, longestLine, s.donorMaxW ?? USABLE_W * 0.8, 64, 22, s.donorFont, s.donorAuto, s.donorSize);
-    ctx.font = `bold ${donorSize}px "${s.donorFont}", serif`;
-    ctx.fillStyle = s.donorColor || '#1e2f5a';
-    ctx.textAlign = s.donorAlign || 'center';
-    const startY = s.donorY - ((totalLines - 1) * lineSpacing) / 2;
-    donorLines.forEach((line, i) => {
-      ctx.direction = _resolveTextDirection(s.donorDir, line);
-      ctx.fillText(line.trim(), s.donorX, startY + i * lineSpacing);
-    });
-  }
-}
-
-function canvasToJpegBase64(canvas) {
-  return canvas.toDataURL('image/jpeg', 0.92).split(',')[1];
-}
-
-// ===================== BATCH PREVIEW + EDIT =====================
-let _pendingBatch = null;  // { lang, prefix, entries:[{name,project}], img }
-let _editingIndex = null;
+let _pendingBatch  = null;
+let _editingIndex  = null;
 const THUMB_W = 480;
 
 function _getBatchGroupSize(prefix) {
-  const el = document.getElementById(`${prefix}-batch-group-size`);
+  const el    = document.getElementById(`${prefix}-batch-group-size`);
   const value = el ? parseInt(el.value, 10) : 1;
   return Number.isFinite(value) && value > 0 ? Math.min(value, 100) : 1;
 }
 
 function _groupBatchNames(names, prefix) {
-  const size = _getBatchGroupSize(prefix);
+  const size   = _getBatchGroupSize(prefix);
   const groups = [];
   for (let i = 0; i < names.length; i += size) {
     groups.push(names.slice(i, i + size).join('\n'));
@@ -1183,7 +761,6 @@ function _groupBatchNames(names, prefix) {
 }
 
 async function startBatch(lang) {
-  // Custom tab support
   if (lang.startsWith('ct-')) {
     const tabId = lang.slice(3);
     const tab   = CUSTOM_TABS.find(t => t.id === tabId);
@@ -1193,26 +770,9 @@ async function startBatch(lang) {
     if (!namesRaw.trim()) { alert('أدخل أسماء أولاً'); return; }
     const defaultProject = (document.getElementById(p + 'project') || {}).value || '';
     const names = namesRaw.split('\n').map(n => n.trim()).filter(Boolean);
-    const initSettings = {
-      donorFont: (document.getElementById(p+'donor-font')||{}).value||'Amiri',
-      projFont:  (document.getElementById(p+'proj-font') ||{}).value||'Amiri',
-      donorDir:  (document.getElementById(p+'donor-dir') ||{}).value||'rtl',
-      projDir:   (document.getElementById(p+'proj-dir')  ||{}).value||'rtl',
-      donorAlign:(document.getElementById(p+'donor-align')||{}).value||'center',
-      projAlign: (document.getElementById(p+'proj-align') ||{}).value||'center',
-      donorSize: parseInt((document.getElementById(p+'donor-size')||{}).value)||64,
-      projSize:  parseInt((document.getElementById(p+'proj-size') ||{}).value)||72,
-      donorY:    parseInt((document.getElementById(p+'donor-y')   ||{}).value)||590,
-      projY:     parseInt((document.getElementById(p+'proj-y')    ||{}).value)||842,
-      donorX:    parseInt((document.getElementById(p+'donor-x')   ||{}).value)||877,
-      projX:     parseInt((document.getElementById(p+'proj-x')    ||{}).value)||877,
-      donorAuto: (document.getElementById(p+'donor-auto')   ||{}).checked!==false,
-      projAuto:  (document.getElementById(p+'proj-auto')    ||{}).checked!==false,
-      donorEnabled:(document.getElementById(p+'donor-enabled')||{}).checked!==false,
-      projEnabled: (document.getElementById(p+'proj-enabled') ||{}).checked!==false,
-    };
+    const initSettings = _resolveSettings('ct-' + tabId, null);
     const entries = _groupBatchNames(names, p.slice(0, -1)).map(name => ({ name, project: defaultProject, settings: { ...initSettings } }));
-    _pendingBatch = { lang, prefix: p.slice(0,-1), entries, img: tab.img };
+    _pendingBatch = { lang, prefix: p.slice(0, -1), entries, img: tab.img };
     openBatchPreviewGrid();
     return;
   }
@@ -1221,19 +781,23 @@ async function startBatch(lang) {
   const namesRaw = document.getElementById(`${prefix}-batch-names`).value.trim();
   if (!namesRaw) { alert('أدخل أسماء أولاً'); return; }
 
-  const projectEl = document.getElementById(lang === 'arabic' ? 'ar-project' : lang === 'english' ? 'en-project' : lang === 'vacip' ? 'vk-project' : lang === 'vert' ? 'vt-project' : 'org-project');
+  const projectEl = document.getElementById(
+    lang === 'arabic' ? 'ar-project' : lang === 'english' ? 'en-project' :
+    lang === 'vacip'  ? 'vk-project' : lang === 'vert'    ? 'vt-project' : 'org-project'
+  );
   const defaultProject = projectEl.value || 'اسم المشروع';
 
-  const img = lang === 'arabic' ? AR_IMG :
+  const img = lang === 'arabic'  ? AR_IMG :
               lang === 'english' ? EN_IMG :
-              lang === 'vacip'   ? (_getVKImg(document.getElementById('vk-donor') ? document.getElementById('vk-donor').value : '') || VK_TR_IMG || VK_AR_IMG || VK_SADAKA_IMG || VK_NAFILE_IMG) :
+              lang === 'vacip'   ? (_getVKImg((document.getElementById('vk-donor') || {}).value || '') || VK_TR_IMG || VK_AR_IMG || VK_SADAKA_IMG || VK_NAFILE_IMG) :
               lang === 'vert'    ? (_getActiveVertTemplate() || {}).img :
               ORG_IMG;
+
   if (lang === 'vacip' && !VK_TR_IMG && !VK_AR_IMG && !VK_SADAKA_IMG && !VK_NAFILE_IMG) { alert('يجب رفع قالب واحد على الأقل أولاً'); return; }
   if (lang !== 'vacip' && (!img || !img.naturalWidth)) { alert('يجب رفع القالب أولاً'); return; }
 
   const names = namesRaw.split('\n').map(n => n.trim()).filter(Boolean);
-  if (names.length === 0) { alert('لا توجد أسماء صالحة'); return; }
+  if (!names.length) { alert('لا توجد أسماء صالحة'); return; }
 
   const initSettings = _resolveSettings(prefix, null);
   const entries = _groupBatchNames(names, prefix).map(name => ({ name, project: defaultProject, settings: { ...initSettings } }));
@@ -1280,7 +844,7 @@ async function openBatchPreviewGrid() {
 
 function _appendCard(index, thumbSrc) {
   const entry = _pendingBatch.entries[index];
-  const grid = document.getElementById('batch-preview-grid');
+  const grid  = document.getElementById('batch-preview-grid');
 
   const card = document.createElement('div');
   card.className = 'preview-card';
@@ -1309,60 +873,14 @@ function _appendCard(index, thumbSrc) {
   grid.appendChild(card);
 }
 
-const FONT_OPTIONS = [
-  // ── خطوط عربية ──
-  { v:'Amiri',               l:'Amiri — أميري' },
-  { v:'Cairo',               l:'Cairo — كايرو' },
-  { v:'Scheherazade New',    l:'Scheherazade — شهرزاد' },
-  { v:'Lateef',              l:'Lateef — لطيف' },
-  { v:'Rakkas',              l:'Rakkas — رقاص' },
-  { v:'Reem Kufi',           l:'Reem Kufi — ريم كوفي' },
-  { v:'Noto Naskh Arabic',   l:'Noto Naskh — نوتو نسخ' },
-  { v:'Noto Kufi Arabic',    l:'Noto Kufi — نوتو كوفي' },
-  { v:'Alexandria',          l:'Alexandria — الإسكندرية' },
-  { v:'Mada',                l:'Mada — مدى' },
-  { v:'Tajawal',             l:'Tajawal — تجوّل' },
-  { v:'IBM Plex Sans Arabic',l:'IBM Plex Arabic — IBM بلكس' },
-  { v:'Noto Sans Arabic',    l:'Noto Sans Arabic — نوتو سانس' },
-  { v:'Changa',              l:'Changa — تشانجا' },
-  { v:'Harmattan',           l:'Harmattan — هارماتان' },
-  { v:'Mirza',               l:'Mirza — ميرزا' },
-  { v:'Aref Ruqaa',          l:'Aref Ruqaa — عارف رقعة' },
-  { v:'Qahiri',              l:'Qahiri — قاهري' },
-  { v:'Markazi Text',        l:'Markazi Text — مركزي' },
-  // ── خطوط أجنبية راقية ──
-  { v:'Pinyon Script',       l:'Pinyon Script — أوباما ✦' },
-  { v:'Great Vibes',         l:'Great Vibes — جريت فايبس' },
-  { v:'Dancing Script',      l:'Dancing Script — دانسينج' },
-  { v:'Tangerine',           l:'Tangerine — تانجرين' },
-  { v:'Satisfy',             l:'Satisfy — ساتيسفاي' },
-  { v:'Alex Brush',          l:'Alex Brush — أليكس براش' },
-  { v:'Allura',              l:'Allura — ألورا' },
-  { v:'Italianno',           l:'Italianno — إيطالياننو' },
-  { v:'Pacifico',            l:'Pacifico — باسيفيكو' },
-  { v:'Lobster',             l:'Lobster — لوبستر' },
-  { v:'Cinzel',              l:'Cinzel — سينزيل' },
-  { v:'Playfair Display',    l:'Playfair Display — بلايفير' },
-  { v:'Cormorant Garamond',  l:'Cormorant Garamond — كورموران' },
-  { v:'IM Fell English',     l:'IM Fell English — كلاسيكي' },
-  { v:'Merriweather',        l:'Merriweather — ميريويذر' },
-  { v:'Righteous',           l:'Righteous — رايتشس' },
-  { v:'Roboto',              l:'Roboto — روبوتو' },
-  { v:'Roboto Black',        l:'Roboto Black — روبوتو أسود' },
-  { v:'Arial',               l:'Arial — أريال' },
-  { v:'Baloo 2',             l:'Baloo 2 — بالو' },
-];
-
 function _populateFontSelects() {
-  // vt font selects populated same as others
   ['batch-edit-donor-font','batch-edit-proj-font'].forEach(id => {
     const sel = document.getElementById(id);
     if (!sel || sel.options.length > 1) return;
     sel.innerHTML = '';
-    FONT_OPTIONS.forEach(f => {
+    DomainLayer.FONT_OPTIONS.forEach(f => {
       const o = document.createElement('option');
-      o.value = f.v; o.textContent = f.l;
-      sel.appendChild(o);
+      o.value = f.v; o.textContent = f.l; sel.appendChild(o);
     });
   });
 }
@@ -1380,49 +898,38 @@ function openCardEditor(index) {
   document.getElementById('batch-edit-view').style.display = 'flex';
   document.getElementById('batch-edit-title').textContent = `تعديل الشهادة ${index + 1} من ${entries.length}`;
 
-  // Text
   _editVal('batch-edit-name').value    = entry.name;
   _editVal('batch-edit-project').value = entry.project;
 
-  // Font selects
-  _setSelect('batch-edit-donor-font', s.donorFont);
-  _setSelect('batch-edit-proj-font',  s.projFont);
-  _setSelect('batch-edit-donor-dir',  s.donorDir || 'rtl');
-  _setSelect('batch-edit-proj-dir',   s.projDir || 'rtl');
+  _setSelect('batch-edit-donor-font',  s.donorFont);
+  _setSelect('batch-edit-proj-font',   s.projFont);
+  _setSelect('batch-edit-donor-dir',   s.donorDir || 'rtl');
+  _setSelect('batch-edit-proj-dir',    s.projDir  || 'rtl');
   _setSelect('batch-edit-donor-align', s.donorAlign || 'center');
-  _setSelect('batch-edit-proj-align',  s.projAlign || 'center');
+  _setSelect('batch-edit-proj-align',  s.projAlign  || 'center');
 
-  // Sizes
   _setRange('batch-edit-donor-size', 'batch-edit-donor-size-val', s.donorSize);
   _setRange('batch-edit-proj-size',  'batch-edit-proj-size-val',  s.projSize);
 
-  // Auto checkboxes
-  _editVal('batch-edit-donor-auto').checked    = s.donorAuto;
-  _editVal('batch-edit-proj-auto').checked     = s.projAuto;
-  _editVal('batch-edit-donor-size').disabled   = s.donorAuto;
-  _editVal('batch-edit-proj-size').disabled    = s.projAuto;
+  _editVal('batch-edit-donor-auto').checked  = s.donorAuto;
+  _editVal('batch-edit-proj-auto').checked   = s.projAuto;
+  _editVal('batch-edit-donor-size').disabled = s.donorAuto;
+  _editVal('batch-edit-proj-size').disabled  = s.projAuto;
   const dEn = _editVal('batch-edit-donor-enabled');
   const pEn = _editVal('batch-edit-proj-enabled');
   if (dEn) dEn.checked = s.donorEnabled !== false;
   if (pEn) pEn.checked = s.projEnabled  !== false;
 
-  // Line height
   _setRange('batch-edit-donor-lineh', 'batch-edit-donor-lineh-val', s.donorLineH || 0);
-
-  // Positions
   _setRange('batch-edit-donor-x', 'batch-edit-donor-x-val', s.donorX);
   _setRange('batch-edit-donor-y', 'batch-edit-donor-y-val', s.donorY);
   _setRange('batch-edit-proj-x',  'batch-edit-proj-x-val',  s.projX);
   _setRange('batch-edit-proj-y',  'batch-edit-proj-y-val',  s.projY);
 
-  // Navigation
   _editVal('batch-edit-prev').disabled = index === 0;
   _editVal('batch-edit-next').disabled = index === entries.length - 1;
 
-  // Template override buttons
   _buildTplButtons(entry);
-
-  // wait one frame so flex layout is calculated before reading clientWidth
   requestAnimationFrame(() => refreshEditPreview());
 }
 
@@ -1436,21 +943,21 @@ function _buildTplButtons(entry) {
     { key: 'default', label: 'Default', img: null },
     ...VERT_IMG_LIST.map((template, idx) => ({ key: 'vert-' + idx, label: template.name, img: template.img })),
   ] : [
-    { key: 'default',  label: '↩ افتراضي',         img: null },
-    { key: 'stk',      label: 'STK',                img: ORG_IMGS.stk },
-    { key: 'ummetin',  label: 'ÜMMETİN ABİSİ',     img: ORG_IMGS.ummetin },
-    { key: 'kayra',    label: 'KAYRA',               img: ORG_IMGS.kayra },
-    { key: 'vk-ar',     label: '🇾🇪 القربان — عربي', img: VK_AR_IMG },
-    { key: 'vk-tr',     label: '🇹🇷 القربان — تركي', img: VK_TR_IMG },
-    { key: 'vk-sadaka', label: '🟢 صدقة كربانى',     img: VK_SADAKA_IMG },
-    { key: 'vk-nafile', label: '🔵 نافلة كربانى',    img: VK_NAFILE_IMG },
+    { key: 'default',   label: '↩ افتراضي',           img: null },
+    { key: 'stk',       label: 'STK',                  img: ORG_IMGS.stk },
+    { key: 'ummetin',   label: 'ÜMMETİN ABİSİ',       img: ORG_IMGS.ummetin },
+    { key: 'kayra',     label: 'KAYRA',                 img: ORG_IMGS.kayra },
+    { key: 'vk-ar',     label: '🇾🇪 القربان — عربي',  img: VK_AR_IMG },
+    { key: 'vk-tr',     label: '🇹🇷 القربان — تركي',  img: VK_TR_IMG },
+    { key: 'vk-sadaka', label: '🟢 صدقة كربانى',        img: VK_SADAKA_IMG },
+    { key: 'vk-nafile', label: '🔵 نافلة كربانى',       img: VK_NAFILE_IMG },
     ...CUSTOM_TABS.filter(t => t.img).map(t => ({ key: 'ct-' + t.id, label: t.name, img: t.img })),
   ];
 
   const activeKey = entry.templateOverride ? entry.templateOverride.key : 'default';
 
   TEMPLATES.forEach(tpl => {
-    if (tpl.key !== 'default' && !tpl.img) return; // skip if image not loaded
+    if (tpl.key !== 'default' && !tpl.img) return;
     const btn = document.createElement('button');
     btn.className = 'batch-tpl-btn' + (tpl.key === activeKey ? ' active' : '');
     btn.textContent = tpl.label;
@@ -1470,7 +977,7 @@ function _buildTplButtons(entry) {
 function _setSelect(id, val) {
   const el = _editVal(id);
   el.value = val;
-  if (el.value !== val) el.value = el.options[0].value;
+  if (el.value !== val && el.options.length) el.value = el.options[0].value;
 }
 
 function _setRange(rangeId, valId, val) {
@@ -1510,7 +1017,7 @@ function refreshEditPreview() {
   const projVal = _editVal('batch-edit-project').value;
   const { lang } = _pendingBatch;
   const settings = _readEditSettings();
-  const entry = _pendingBatch.entries[_editingIndex];
+  const entry    = _pendingBatch.entries[_editingIndex];
 
   _editVal('batch-edit-donor-size').disabled = settings.donorAuto;
   _editVal('batch-edit-proj-size').disabled  = settings.projAuto;
@@ -1523,7 +1030,6 @@ function refreshEditPreview() {
   const wrap    = document.getElementById('batch-edit-canvas-wrap');
   const preview = document.getElementById('batch-edit-canvas-preview');
 
-  // On mobile the edit panel stacks vertically, so use full width
   const isMobile = window.innerWidth <= 700;
   const fallbackW = isMobile ? (window.innerWidth - 24) : (window.innerWidth - 340);
   const availW = wrap.clientWidth > 10 ? wrap.clientWidth : fallbackW;
@@ -1539,9 +1045,9 @@ function refreshEditPreview() {
 }
 
 function saveCardEdit() {
-  const i = _editingIndex;
-  const nameVal = _editVal('batch-edit-name').value.trim();
-  const projVal = _editVal('batch-edit-project').value.trim();
+  const i        = _editingIndex;
+  const nameVal  = _editVal('batch-edit-name').value.trim();
+  const projVal  = _editVal('batch-edit-project').value.trim();
   if (nameVal) _pendingBatch.entries[i].name    = nameVal;
   if (projVal) _pendingBatch.entries[i].project = projVal;
   _pendingBatch.entries[i].settings = _readEditSettings();
@@ -1564,7 +1070,6 @@ function navigateEdit(direction) {
 function backToGrid() {
   document.getElementById('batch-edit-view').style.display = 'none';
   document.getElementById('batch-grid-view').style.display = 'block';
-  // Scroll to the edited card
   const card = document.getElementById(`bcard-${_editingIndex}`);
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
   _editingIndex = null;
@@ -1573,30 +1078,29 @@ function backToGrid() {
 function closeBatchPreview() {
   document.getElementById('batch-preview-modal').style.display = 'none';
   document.body.style.overflow = '';
-  _pendingBatch = null;
-  _editingIndex = null;
+  _pendingBatch  = null;
+  _editingIndex  = null;
 }
 
 async function confirmBatchDownload() {
   if (!_pendingBatch) return;
   const { lang, prefix, entries, img } = _pendingBatch;
-  // Save full batch (with per-card edits) to history
-  try { histSaveBatch(lang, entries); } catch(e) {}
-  closeBatchPreview(); // sets _pendingBatch = null — use local vars below
+  try { histSaveBatch(lang, entries); } catch (e) {}
+  closeBatchPreview();
 
-  const mode = batchOpts[prefix];
+  const mode       = batchOpts[prefix] || 'pdf';
   const progressEl = document.getElementById(`${prefix}-batch-progress`);
-  const barEl = document.getElementById(`${prefix}-batch-bar`);
-  const textEl = document.getElementById(`${prefix}-batch-text`);
-  progressEl.style.display = 'block';
+  const barEl      = document.getElementById(`${prefix}-batch-bar`);
+  const textEl     = document.getElementById(`${prefix}-batch-text`);
+  if (progressEl) progressEl.style.display = 'block';
 
   if (mode === 'pdf') {
-    textEl.textContent = 'جارٍ بناء PDF...';
+    if (textEl) textEl.textContent = 'جارٍ بناء PDF...';
     const jpegDataList = [];
 
     for (let i = 0; i < entries.length; i++) {
-      barEl.style.width = `${Math.round((i / entries.length) * 80)}%`;
-      textEl.textContent = `معالجة ${i + 1} من ${entries.length}: ${entries[i].name}`;
+      if (barEl) barEl.style.width = `${Math.round((i / entries.length) * 80)}%`;
+      if (textEl) textEl.textContent = `معالجة ${i + 1} من ${entries.length}: ${entries[i].name}`;
       await new Promise(r => setTimeout(r, 10));
 
       const c = getBatchCanvas(lang);
@@ -1604,17 +1108,17 @@ async function confirmBatchDownload() {
       jpegDataList.push({ data: canvasToJpegBase64(c), w: c.width, h: c.height });
     }
 
-    barEl.style.width = '90%';
-    textEl.textContent = 'جارٍ تجميع PDF...';
+    if (barEl) barEl.style.width = '90%';
+    if (textEl) textEl.textContent = 'جارٍ تجميع PDF...';
     await new Promise(r => setTimeout(r, 20));
 
     const pdfBytes = buildMultiPagePDF(jpegDataList);
-    barEl.style.width = '100%';
-    textEl.textContent = `✓ تم — ${entries.length} لوحة في PDF واحد`;
+    if (barEl) barEl.style.width = '100%';
+    if (textEl) textEl.textContent = `✓ تم — ${entries.length} لوحة في PDF واحد`;
 
     const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
     a.href = url;
     a.download = `${getBatchFileName(lang, entries.length)}.pdf`;
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
@@ -1622,8 +1126,8 @@ async function confirmBatchDownload() {
 
   } else {
     for (let i = 0; i < entries.length; i++) {
-      barEl.style.width = `${Math.round(((i + 1) / entries.length) * 100)}%`;
-      textEl.textContent = `تحميل ${i + 1} من ${entries.length}: ${entries[i].name}`;
+      if (barEl) barEl.style.width = `${Math.round(((i + 1) / entries.length) * 100)}%`;
+      if (textEl) textEl.textContent = `تحميل ${i + 1} من ${entries.length}: ${entries[i].name}`;
       await new Promise(r => setTimeout(r, 50));
 
       const c = getBatchCanvas(lang);
@@ -1632,7 +1136,7 @@ async function confirmBatchDownload() {
       await new Promise(resolve => {
         c.toBlob(blob => {
           const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
+          const a   = document.createElement('a');
           a.href = url;
           a.download = lang === 'vert'
             ? `${_getVertExportName(i + 1)}.png`
@@ -1642,114 +1146,22 @@ async function confirmBatchDownload() {
         }, 'image/png');
       });
     }
-    textEl.textContent = `✓ تم تحميل ${entries.length} صورة`;
+    if (textEl) textEl.textContent = `✓ تم تحميل ${entries.length} صورة`;
   }
 }
 
-function buildMultiPagePDF(pages) {
-  const enc = new TextEncoder();
-  const parts = [];
-  let offset = 0;
-  const byteOffsets = {};
+// ── Custom tabs ───────────────────────────────────────────────────────────────
+const CT_STATE_KEY  = 'donor_cert_custom_tabs_v1';
+let   CUSTOM_TABS   = [];
+let   _ctCounter    = 0;
 
-  function pushText(s) {
-    const b = enc.encode(s);
-    parts.push(b); offset += b.length;
-  }
-  function pushBin(arr) {
-    parts.push(arr); offset += arr.length;
-  }
+const CT_FIELD_IDS  = ['donor','project','batch-names','batch-group-size','donor-font','proj-font','donor-dir','proj-dir','donor-align','proj-align','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
+const CT_CB_IDS     = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
+const CT_SLIDER_IDS = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
 
-  const N = pages.length;
-  // obj numbering: 1=catalog, 2=pages, 3..N+2=page objs, N+3..2N+2=img objs, 2N+3..3N+2=content objs
-
-  pushText('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
-
-  // Catalog
-  byteOffsets[1] = offset;
-  pushText(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
-
-  // Pages
-  const kids = pages.map((_, i) => `${3 + i} 0 R`).join(' ');
-  byteOffsets[2] = offset;
-  pushText(`2 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${N} >>\nendobj\n`);
-
-  // For each page: page obj, image obj, content obj
-  for (let i = 0; i < N; i++) {
-    const { data, w, h } = pages[i];
-    const wPt = (w * 0.75).toFixed(2);
-    const hPt = (h * 0.75).toFixed(2);
-    const pageObjN    = 3 + i;
-    const imgObjN     = 3 + N + i;
-    const contentObjN = 3 + 2 * N + i;
-
-    // Page obj
-    byteOffsets[pageObjN] = offset;
-    pushText(`${pageObjN} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${wPt} ${hPt}] /Contents ${contentObjN} 0 R /Resources << /XObject << /Img${i} ${imgObjN} 0 R >> >> >>\nendobj\n`);
-
-    // Image obj
-    const jpegBytes = atob(data);
-    const jpegLen = jpegBytes.length;
-    const jpegArr = new Uint8Array(jpegLen);
-    for (let j = 0; j < jpegLen; j++) jpegArr[j] = jpegBytes.charCodeAt(j);
-
-    byteOffsets[imgObjN] = offset;
-    pushText(`${imgObjN} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegLen} >>\nstream\n`);
-    pushBin(jpegArr);
-    pushText(`\nendstream\nendobj\n`);
-
-    // Content stream
-    const cs = `q ${wPt} 0 0 ${hPt} 0 0 cm /Img${i} Do Q`;
-    byteOffsets[contentObjN] = offset;
-    pushText(`${contentObjN} 0 obj\n<< /Length ${cs.length} >>\nstream\n${cs}\nendstream\nendobj\n`);
-  }
-
-  const totalObjs = 3 + 3 * N;
-  const xrefOffset = offset;
-  let xref = `xref\n0 ${totalObjs}\n0000000000 65535 f \n`;
-  for (let i = 1; i < totalObjs; i++) {
-    xref += String(byteOffsets[i] || 0).padStart(10, '0') + ' 00000 n \n';
-  }
-  pushText(xref);
-  pushText(`trailer\n<< /Size ${totalObjs} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
-
-  let total = 0;
-  for (const p of parts) total += p.length;
-  const result = new Uint8Array(total);
-  let pos = 0;
-  for (const p of parts) { result.set(p, pos); pos += p.length; }
-  return result;
-}
-
-
-function switchTab(tab, btnEl) {
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-  document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
-  const tabEl = document.getElementById("tab-" + tab);
-  if (tabEl) tabEl.classList.add("active");
-  const btn = btnEl || document.getElementById("tabBtn-" + tab);
-  if (btn) btn.classList.add("active");
-  if (tab === "orgs")         renderOrgs();
-  else if (tab === "vacip")   renderVacip();
-  else if (tab === "vert")    renderVert();
-  else                        _ctRender(tab);
-}
-
-// ===================== CUSTOM TABS =====================
-
-const CT_STATE_KEY = 'donor_cert_custom_tabs_v1';
-let CUSTOM_TABS = [];   // [{ id, name, templateDataUrl }]
-let _ctCounter  = 0;
-
-const CT_FIELD_IDS   = ['donor','project','batch-names','batch-group-size','donor-font','proj-font','donor-dir','proj-dir','donor-align','proj-align','donor-size','proj-size','donor-y','proj-y','donor-x','proj-x','donor-maxw','proj-maxw','donor-color','proj-color','donor-lineh'];
-const CT_CB_IDS      = ['donor-enabled','proj-enabled','donor-auto','proj-auto'];
-const CT_SLIDER_IDS  = ['donor-size','proj-size','donor-y','proj-y','donor-x','proj-x'];
-
-function _ctPrefix(id) { return 'ct-' + id + '-'; }
-
-function _ctFieldId(tabId, field) { return _ctPrefix(tabId) + field; }
-
-function _ctEl(tabId, field) { return document.getElementById(_ctFieldId(tabId, field)); }
+function _ctPrefix(id)        { return 'ct-' + id + '-'; }
+function _ctFieldId(tabId, f) { return _ctPrefix(tabId) + f; }
+function _ctEl(tabId, f)      { return document.getElementById(_ctFieldId(tabId, f)); }
 
 function _ctSliders(tabId) {
   CT_SLIDER_IDS.forEach(f => {
@@ -1759,37 +1171,6 @@ function _ctSliders(tabId) {
   });
 }
 
-function renderCustomTab(tabId) {
-  const tab = CUSTOM_TABS.find(t => t.id === tabId);
-  if (!tab) return;
-  if (!tab.img || !tab.img.naturalWidth) {
-    const status = document.getElementById('ct-' + tabId + '-status');
-    if (status) status.textContent = '⚠ ارفع قالب الجهة أولاً';
-    return;
-  }
-  const canvas  = document.getElementById('canvas-ct-' + tabId);
-  if (!canvas) return;
-  const ctx     = canvas.getContext('2d');
-  ctx.clearRect(0, 0, IMG_W, IMG_H);
-  ctx.drawImage(tab.img, 0, 0, IMG_W, IMG_H);
-  // reuse drawCertText with a fake prefix — read values directly
-  const donor   = (_ctEl(tabId,'donor') || {}).value   || '';
-  const project = (_ctEl(tabId,'project') || {}).value || '';
-  const pf      = _ctPrefix(tabId);
-  // temporarily alias IDs so drawCertText can read them
-  _withAliasedIds(pf, 'ct-', tabId, () => drawCertText(ctx, donor, project, 'ct-' + tabId));
-  const wrapper = document.getElementById('ct-' + tabId + '-canvas-wrapper');
-  if (wrapper) wrapper.style.display = 'block';
-  const prompt  = document.getElementById('ct-' + tabId + '-upload-prompt');
-  if (prompt)  prompt.style.display  = 'none';
-  const status  = document.getElementById('ct-' + tabId + '-status');
-  if (status)  status.textContent    = '✓ اللوحة جاهزة للتحميل';
-  saveCustomTabs();
-}
-
-// drawCertText reads IDs like `${lang}-donor`, `${lang}-proj-font` etc.
-// We need to alias our ct-{id}-donor → a fake lang prefix.
-// Simpler: build settings object and call drawCertTextDirect.
 function _ctRender(tabId) {
   const tab = CUSTOM_TABS.find(t => t.id === tabId);
   if (!tab) return;
@@ -1804,30 +1185,30 @@ function _ctRender(tabId) {
   ctx.clearRect(0, 0, IMG_W, IMG_H);
   ctx.drawImage(tab.img, 0, 0, IMG_W, IMG_H);
 
-  const donor   = (_ctEl(tabId,'donor')   || {}).value || '';
-  const project = (_ctEl(tabId,'project') || {}).value || '';
+  const donor   = (_ctEl(tabId, 'donor')   || {}).value || '';
+  const project = (_ctEl(tabId, 'project') || {}).value || '';
 
   const settings = {
-    donorFont:    (_ctEl(tabId,'donor-font')   || {}).value || 'Amiri',
-    projFont:     (_ctEl(tabId,'proj-font')    || {}).value || 'Amiri',
-    donorDir:     (_ctEl(tabId,'donor-dir')    || {}).value || 'rtl',
-    projDir:      (_ctEl(tabId,'proj-dir')     || {}).value || 'rtl',
-    donorAlign:   (_ctEl(tabId,'donor-align')  || {}).value || 'center',
-    projAlign:    (_ctEl(tabId,'proj-align')   || {}).value || 'center',
-    donorSize:    parseInt((_ctEl(tabId,'donor-size') || {}).value) || 64,
-    projSize:     parseInt((_ctEl(tabId,'proj-size')  || {}).value) || 72,
-    donorY:       parseInt((_ctEl(tabId,'donor-y')    || {}).value) || 590,
-    projY:        parseInt((_ctEl(tabId,'proj-y')     || {}).value) || 842,
-    donorX:       parseInt((_ctEl(tabId,'donor-x')    || {}).value) || 877,
-    projX:        parseInt((_ctEl(tabId,'proj-x')     || {}).value) || 877,
-    donorAuto:    (_ctEl(tabId,'donor-auto')   || {}).checked !== false,
-    projAuto:     (_ctEl(tabId,'proj-auto')    || {}).checked !== false,
-    donorEnabled: (_ctEl(tabId,'donor-enabled')|| {}).checked !== false,
-    projEnabled:  (_ctEl(tabId,'proj-enabled') || {}).checked !== false,
+    donorFont:    (_ctEl(tabId,'donor-font')    || {}).value || 'Amiri',
+    projFont:     (_ctEl(tabId,'proj-font')     || {}).value || 'Amiri',
+    donorDir:     (_ctEl(tabId,'donor-dir')     || {}).value || 'rtl',
+    projDir:      (_ctEl(tabId,'proj-dir')      || {}).value || 'rtl',
+    donorAlign:   (_ctEl(tabId,'donor-align')   || {}).value || 'center',
+    projAlign:    (_ctEl(tabId,'proj-align')    || {}).value || 'center',
+    donorSize:    parseInt((_ctEl(tabId,'donor-size')  || {}).value) || 64,
+    projSize:     parseInt((_ctEl(tabId,'proj-size')   || {}).value) || 72,
+    donorY:       parseInt((_ctEl(tabId,'donor-y')     || {}).value) || 590,
+    projY:        parseInt((_ctEl(tabId,'proj-y')      || {}).value) || 842,
+    donorX:       parseInt((_ctEl(tabId,'donor-x')     || {}).value) || 877,
+    projX:        parseInt((_ctEl(tabId,'proj-x')      || {}).value) || 877,
+    donorAuto:    (_ctEl(tabId,'donor-auto')    || {}).checked !== false,
+    projAuto:     (_ctEl(tabId,'proj-auto')     || {}).checked !== false,
+    donorEnabled: (_ctEl(tabId,'donor-enabled') || {}).checked !== false,
+    projEnabled:  (_ctEl(tabId,'proj-enabled')  || {}).checked !== false,
     donorMaxW:    parseInt((_ctEl(tabId,'donor-maxw')  || {}).value) || 1400,
     projMaxW:     parseInt((_ctEl(tabId,'proj-maxw')   || {}).value) || 1400,
-    donorColor:   (_ctEl(tabId,'donor-color') || {}).value || '#1e2f5a',
-    projColor:    (_ctEl(tabId,'proj-color')  || {}).value || '#ffffff',
+    donorColor:   (_ctEl(tabId,'donor-color')   || {}).value || '#1e2f5a',
+    projColor:    (_ctEl(tabId,'proj-color')    || {}).value || '#ffffff',
     donorLineH:   parseInt((_ctEl(tabId,'donor-lineh') || {}).value) || 0,
   };
   drawCertTextDirect(ctx, donor, project, 'ct', settings);
@@ -1841,6 +1222,9 @@ function _ctRender(tabId) {
   saveCustomTabs();
 }
 
+// renderCustomTab kept for any legacy inline calls — delegates to _ctRender
+function renderCustomTab(tabId) { _ctRender(tabId); }
+
 function loadCustomTemplate(input, tabId) {
   const file = input.files[0];
   if (!file) return;
@@ -1853,10 +1237,10 @@ function loadCustomTemplate(input, tabId) {
 }
 
 function _buildCustomTabPanel(tab) {
-  const id   = tab.id;
-  const p    = 'ct-' + id + '-';
-  const div  = document.createElement('div');
-  div.id     = 'tab-' + id;
+  const id  = tab.id;
+  const p   = 'ct-' + id + '-';
+  const div = document.createElement('div');
+  div.id        = 'tab-' + id;
   div.className = 'tab-content main';
   div.innerHTML = `
   <div class="panel">
@@ -1875,101 +1259,108 @@ function _buildCustomTabPanel(tab) {
       <input type="text" id="${p}project" placeholder="اسم المشروع" oninput="_ctRender('${id}')">
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">🔤 نوع الخط</div>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
-        <select id="${p}donor-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
-        <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
-        <select id="${p}donor-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
-        <select id="${p}donor-align" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
-        <select id="${p}proj-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
-        <select id="${p}proj-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
-        <select id="${p}proj-align" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-      </div>
+    <div class="field adv-section">
+      <details>
+        <summary>🔤 إعدادات الخط</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <div class="font-section-title">🔤 نوع الخط</div>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
+          <select id="${p}donor-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+          <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
+          <select id="${p}donor-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
+          <select id="${p}donor-align" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+          <select id="${p}proj-font" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+          <select id="${p}proj-dir" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+          <select id="${p}proj-align" onchange="_ctRender('${id}')" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+        </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📐 حجم وموضع — المتبرع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="${p}donor-size" min="20" max="300" value="64" oninput="document.getElementById('${p}donor-size-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}donor-size-val">64</span>
+    <div class="field adv-section">
+      <details>
+        <summary>📐 حجم وموضع — المتبرع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="${p}donor-size" min="20" max="300" value="64" oninput="document.getElementById('${p}donor-size-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}donor-size-val">64</span>
+          </div>
+          <label class="auto-toggle"><input type="checkbox" id="${p}donor-auto" checked onchange="toggleAuto('ct-${id}','donor')"> حجم تلقائي</label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+          <div class="color-row">
+            <input type="color" id="${p}donor-color" value="#1e2f5a" oninput="_ctRender('${id}')">
+            <span class="color-val" id="${p}donor-color-val">#1e2f5a</span>
+            <button class="color-reset" onclick="document.getElementById('${p}donor-color').value='#1e2f5a';_ctRender('${id}')">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
+          <div class="font-control">
+            <input type="range" id="${p}donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}donor-maxw-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}donor-maxw-val">1400</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+          <div class="font-control">
+            <input type="range" id="${p}donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('${p}donor-lineh-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}donor-lineh-val">0</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="${p}donor-y" min="50" max="1200" value="590" oninput="document.getElementById('${p}donor-y-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}donor-y-val">590</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="${p}donor-x" min="0" max="1754" value="877" oninput="document.getElementById('${p}donor-x-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}donor-x-val">877</span>
+          </div>
         </div>
-        <label class="auto-toggle"><input type="checkbox" id="${p}donor-auto" checked onchange="toggleAuto('ct-${id}','donor')"> حجم تلقائي</label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
-        <div class="color-row">
-          <input type="color" id="${p}donor-color" value="#1e2f5a" oninput="_ctRender('${id}')">
-          <span class="color-val" id="${p}donor-color-val">#1e2f5a</span>
-          <button class="color-reset" onclick="document.getElementById('${p}donor-color').value='#1e2f5a';_ctRender('${id}')">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
-        <div class="font-control">
-          <input type="range" id="${p}donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}donor-maxw-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}donor-maxw-val">1400</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
-        <div class="font-control">
-          <input type="range" id="${p}donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('${p}donor-lineh-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}donor-lineh-val">0</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="${p}donor-y" min="50" max="1200" value="590" oninput="document.getElementById('${p}donor-y-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}donor-y-val">590</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="${p}donor-x" min="0" max="1754" value="877" oninput="document.getElementById('${p}donor-x-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}donor-x-val">877</span>
-        </div>
-      </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📋 حجم وموضع — المشروع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="${p}proj-size" min="20" max="300" value="72" oninput="document.getElementById('${p}proj-size-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}proj-size-val">72</span>
+    <div class="field adv-section">
+      <details>
+        <summary>📋 حجم وموضع — المشروع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="${p}proj-size" min="20" max="300" value="72" oninput="document.getElementById('${p}proj-size-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}proj-size-val">72</span>
+          </div>
+          <label class="auto-toggle"><input type="checkbox" id="${p}proj-auto" checked onchange="toggleAuto('ct-${id}','proj')"> حجم تلقائي</label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+          <div class="color-row">
+            <input type="color" id="${p}proj-color" value="#ffffff" oninput="_ctRender('${id}')">
+            <span class="color-val" id="${p}proj-color-val">#ffffff</span>
+            <button class="color-reset" onclick="document.getElementById('${p}proj-color').value='#ffffff';_ctRender('${id}')">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
+          <div class="font-control">
+            <input type="range" id="${p}proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}proj-maxw-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}proj-maxw-val">1400</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="${p}proj-y" min="50" max="1200" value="842" oninput="document.getElementById('${p}proj-y-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}proj-y-val">842</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="${p}proj-x" min="0" max="1754" value="877" oninput="document.getElementById('${p}proj-x-val').textContent=this.value;_ctRender('${id}')">
+            <span class="size-val" id="${p}proj-x-val">877</span>
+          </div>
         </div>
-        <label class="auto-toggle"><input type="checkbox" id="${p}proj-auto" checked onchange="toggleAuto('ct-${id}','proj')"> حجم تلقائي</label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
-        <div class="color-row">
-          <input type="color" id="${p}proj-color" value="#ffffff" oninput="_ctRender('${id}')">
-          <span class="color-val" id="${p}proj-color-val">#ffffff</span>
-          <button class="color-reset" onclick="document.getElementById('${p}proj-color').value='#ffffff';_ctRender('${id}')">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
-        <div class="font-control">
-          <input type="range" id="${p}proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('${p}proj-maxw-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}proj-maxw-val">1400</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="${p}proj-y" min="50" max="1200" value="842" oninput="document.getElementById('${p}proj-y-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}proj-y-val">842</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="${p}proj-x" min="0" max="1754" value="877" oninput="document.getElementById('${p}proj-x-val').textContent=this.value;_ctRender('${id}')">
-          <span class="size-val" id="${p}proj-x-val">877</span>
-        </div>
-      </div>
+      </details>
     </div>
 
     <div class="field">
@@ -2034,32 +1425,31 @@ function _addCustomTabToDOM(tab) {
   const modal = document.getElementById('batch-preview-modal');
   const panel = _buildCustomTabPanel(tab);
   document.body.insertBefore(panel, modal);
-  // Add tab button before the + button
   const tabsBar = document.getElementById('tabs-bar');
   const addBtn  = document.getElementById('tab-add-btn');
   const btn     = document.createElement('button');
   btn.className = 'tab-btn';
   btn.id        = 'tabBtn-' + tab.id;
   btn.innerHTML = `📋 ${tab.name} <span class="tab-close" onclick="event.stopPropagation();removeCustomTab('${tab.id}')">✕</span>`;
-  btn.onclick   = (e) => switchTab(tab.id, btn);
+  btn.onclick   = () => switchTab(tab.id, btn);
   tabsBar.insertBefore(btn, addBtn);
+
   // Init font selects
   [tab.id + '-donor-font', tab.id + '-proj-font'].map(f => 'ct-' + f).forEach(selId => {
     const sel = document.getElementById(selId);
     if (!sel) return;
     sel.innerHTML = '';
-    FONT_OPTIONS.forEach(f => {
+    DomainLayer.FONT_OPTIONS.forEach(f => {
       const o = document.createElement('option');
       o.value = f.v; o.textContent = f.l; sel.appendChild(o);
     });
   });
-  // Re-attach batch opts save hooks
-  if (typeof _hookStateSave === 'function') {
-    ['ct-' + tab.id + '-donor','ct-' + tab.id + '-project','ct-' + tab.id + '-batch-names','ct-' + tab.id + '-batch-group-size'].forEach(id => {
-      const el = document.getElementById(id);
-      if (el) { el.addEventListener('input', saveCustomTabs); el.addEventListener('change', saveCustomTabs); }
-    });
-  }
+
+  // Hook save
+  ['ct-' + tab.id + '-donor','ct-' + tab.id + '-project','ct-' + tab.id + '-batch-names','ct-' + tab.id + '-batch-group-size'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.addEventListener('input', saveCustomTabs); el.addEventListener('change', saveCustomTabs); }
+  });
 }
 
 function addCustomTab(name) {
@@ -2079,7 +1469,7 @@ function removeCustomTab(tabId) {
   if (panel) panel.remove();
   const btn = document.getElementById('tabBtn-' + tabId);
   if (btn) btn.remove();
-  switchTab('arabic', document.getElementById('tabBtn-arabic'));
+  switchTab('orgs', document.getElementById('tabBtn-orgs'));
   saveCustomTabs();
 }
 
@@ -2094,7 +1484,7 @@ function saveCustomTabs() {
       return { id: t.id, name: t.name, templateDataUrl: t.templateDataUrl, fields, checkboxes };
     });
     localStorage.setItem(CT_STATE_KEY, JSON.stringify({ tabs: data, counter: _ctCounter }));
-  } catch(e) {}
+  } catch (e) {}
 }
 
 function loadCustomTabs() {
@@ -2107,23 +1497,26 @@ function loadCustomTabs() {
       const tab = { id: tData.id, name: tData.name, templateDataUrl: tData.templateDataUrl, img: null };
       CUSTOM_TABS.push(tab);
       _addCustomTabToDOM(tab);
-      // Restore field values
       const p = 'ct-' + tab.id + '-';
-      if (tData.fields)    Object.entries(tData.fields).forEach(([f,v]) => { const el = document.getElementById(p+f); if(el) el.value = v; });
-      if (tData.checkboxes) Object.entries(tData.checkboxes).forEach(([f,v]) => { const el = document.getElementById(p+f); if(el) el.checked = v; });
-      // Restore slider display values
-      CT_SLIDER_IDS.forEach(f => { const el = document.getElementById(p+f); const ve = document.getElementById(p+f+'-val'); if(el&&ve) ve.textContent = el.value; });
-      // Reload template image
+      if (tData.fields)     Object.entries(tData.fields).forEach(([f,v]) => { const el = document.getElementById(p+f); if (el) el.value = v; });
+      if (tData.checkboxes) Object.entries(tData.checkboxes).forEach(([f,v]) => { const el = document.getElementById(p+f); if (el) el.checked = v; });
+      CT_SLIDER_IDS.forEach(f => { const el = document.getElementById(p+f); const ve = document.getElementById(p+f+'-val'); if (el && ve) ve.textContent = el.value; });
       if (tData.templateDataUrl) {
         const img = new Image();
-        img.onload = () => { tab.img = img; document.getElementById('ct-'+tab.id+'-upload-prompt').style.display='none'; document.getElementById(p+'upload-badge').textContent='✓'; };
+        img.onload = () => {
+          tab.img = img;
+          const pr = document.getElementById('ct-' + tab.id + '-upload-prompt');
+          if (pr) pr.style.display = 'none';
+          const badge = document.getElementById(p + 'upload-badge');
+          if (badge) badge.textContent = '✓';
+        };
         img.src = tData.templateDataUrl;
       }
     });
-  } catch(e) {}
+  } catch (e) {}
 }
 
-// Modal handlers
+// ── Modal handlers ────────────────────────────────────────────────────────────
 function openNewTabModal() {
   const m = document.getElementById('new-tab-modal');
   m.style.display = 'flex';
@@ -2140,25 +1533,27 @@ function confirmNewTab() {
   addCustomTab(name);
 }
 document.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && document.getElementById('new-tab-modal').style.display === 'flex') confirmNewTab();
-  if (e.key === 'Escape' && document.getElementById('new-tab-modal').style.display === 'flex') closeNewTabModal();
+  const modal = document.getElementById('new-tab-modal');
+  if (!modal) return;
+  if (e.key === 'Enter'  && modal.style.display === 'flex') confirmNewTab();
+  if (e.key === 'Escape' && modal.style.display === 'flex') closeNewTabModal();
 });
 
-// Populate all font selects on page load
+// ── Font selects init ─────────────────────────────────────────────────────────
 function _initAllFontSelects() {
   const mainSelects = [
-    ['ar-donor-font'],['ar-proj-font'],
-    ['en-donor-font'],['en-proj-font'],
-    ['org-donor-font'],['org-proj-font'],
-    ['vk-donor-font'],['vk-proj-font'],
-    ['vt-donor-font'],['vt-proj-font'],
+    'ar-donor-font','ar-proj-font',
+    'en-donor-font','en-proj-font',
+    'org-donor-font','org-proj-font',
+    'vk-donor-font','vk-proj-font',
+    'vt-donor-font','vt-proj-font',
   ];
-  mainSelects.forEach(([id]) => {
+  mainSelects.forEach(id => {
     const sel = document.getElementById(id);
     if (!sel) return;
-    const cur = sel.value || sel.options[0]?.value || 'Amiri';
+    const cur = sel.value || (sel.options[0] && sel.options[0].value) || 'Amiri';
     sel.innerHTML = '';
-    FONT_OPTIONS.forEach(f => {
+    DomainLayer.FONT_OPTIONS.forEach(f => {
       const o = document.createElement('option');
       o.value = f.v; o.textContent = f.l;
       if (f.v === cur) o.selected = true;
@@ -2166,35 +1561,25 @@ function _initAllFontSelects() {
     });
   });
 }
-// ── localStorage state persistence ──────────────────────────────────────────
 
+// ── State persistence ─────────────────────────────────────────────────────────
 const STATE_KEY = 'donor_cert_state_v1';
 
 const STATE_FIELDS = [
-  // text fields
   'ar-donor','ar-project','en-donor','en-project','org-donor','org-project','vk-donor','vk-project','vt-donor','vt-project',
-  // batch textarea
   'ar-batch-names','en-batch-names','org-batch-names','vk-batch-names','vt-batch-names',
   'org-batch-group-size','vk-batch-group-size','vt-batch-group-size',
-  // font selects
   'ar-donor-font','ar-proj-font','en-donor-font','en-proj-font',
   'org-donor-font','org-proj-font','vk-donor-font','vk-proj-font','vt-donor-font','vt-proj-font',
-  // direction selects
   'org-donor-dir','org-proj-dir','vk-donor-dir','vk-proj-dir','vt-donor-dir','vt-proj-dir',
-  // alignment selects
   'org-donor-align','org-proj-align','vk-donor-align','vk-proj-align','vt-donor-align','vt-proj-align',
-  // size sliders
   'ar-donor-size','ar-proj-size','en-donor-size','en-proj-size',
   'org-donor-size','org-proj-size','vk-donor-size','vk-proj-size','vt-donor-size','vt-proj-size',
-  // max-width sliders
   'org-donor-maxw','org-proj-maxw','vk-donor-maxw','vk-proj-maxw','vt-donor-maxw','vt-proj-maxw',
   'org-donor-lineh','vk-donor-lineh','vt-donor-lineh',
-  // color pickers
   'org-donor-color','org-proj-color','vk-donor-color','vk-proj-color','vt-donor-color','vt-proj-color',
-  // Y sliders
   'ar-donor-y','ar-proj-y','en-donor-y','en-proj-y',
   'org-donor-y','org-proj-y','vk-donor-y','vk-proj-y','vt-donor-y','vt-proj-y',
-  // X sliders
   'ar-donor-x','ar-proj-x','en-donor-x','en-proj-x',
   'org-donor-x','org-proj-x','vk-donor-x','vk-proj-x','vt-donor-x','vt-proj-x',
 ];
@@ -2208,19 +1593,12 @@ const STATE_CHECKBOXES = [
 
 function saveState() {
   try {
-    // Snapshot current org slot before saving
     _saveOrgSlotToMemory(ORG_ACTIVE_SLOT);
     const state = { fields: {}, checkboxes: {}, orgSlot: ORG_ACTIVE_SLOT, orgSlotSettings: ORG_SLOT_SETTINGS, vkTemplateMode: VK_TEMPLATE_MODE };
-    STATE_FIELDS.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) state.fields[id] = el.value;
-    });
-    STATE_CHECKBOXES.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) state.checkboxes[id] = el.checked;
-    });
+    STATE_FIELDS.forEach(id => { const el = document.getElementById(id); if (el) state.fields[id] = el.value; });
+    STATE_CHECKBOXES.forEach(id => { const el = document.getElementById(id); if (el) state.checkboxes[id] = el.checked; });
     localStorage.setItem(STATE_KEY, JSON.stringify(state));
-  } catch(e) {}
+  } catch (e) {}
 }
 
 function loadState() {
@@ -2229,17 +1607,15 @@ function loadState() {
     if (!raw) return;
     const state = JSON.parse(raw);
 
-    // Restore per-slot org settings first
     if (state.orgSlotSettings) {
       ['stk','ummetin','kayra','custom'].forEach(slot => {
         if (state.orgSlotSettings[slot]) ORG_SLOT_SETTINGS[slot] = state.orgSlotSettings[slot];
       });
     }
 
-    // Restore non-org fields
     if (state.fields) {
       Object.entries(state.fields).forEach(([id, val]) => {
-        if (id.startsWith('org-')) return; // handled per-slot below
+        if (id.startsWith('org-')) return;
         const el = document.getElementById(id);
         if (el) el.value = val;
       });
@@ -2252,34 +1628,29 @@ function loadState() {
       });
     }
 
-    // Update displayed slider values for non-org tabs
     STATE_FIELDS.forEach(id => {
       if (id.startsWith('org-')) return;
       if (!id.endsWith('-size') && !id.endsWith('-y') && !id.endsWith('-x')) return;
-      const el = document.getElementById(id);
+      const el   = document.getElementById(id);
       const valEl = document.getElementById(id + '-val');
       if (el && valEl) valEl.textContent = el.value;
     });
 
-    // Restore VK template mode
     if (state.vkTemplateMode) setVKTemplate(state.vkTemplateMode);
 
-    // Activate saved org slot (loads its settings into UI)
     const savedSlot = state.orgSlot || 'custom';
     ORG_ACTIVE_SLOT = savedSlot;
     document.querySelectorAll('.org-slot-btn').forEach(b => b.classList.remove('org-slot-active'));
-    const btn = document.getElementById(`org-slot-${savedSlot}`);
+    const btn = document.getElementById('org-slot-' + savedSlot);
     if (btn) btn.classList.add('org-slot-active');
     _loadOrgSlotFromMemory(savedSlot);
-  } catch(e) {}
+  } catch (e) {}
 }
 
-// Hook save into all inputs/selects after DOM is ready
 function _hookStateSave() {
   STATE_FIELDS.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.addEventListener('input', saveState);
-    if (el) el.addEventListener('change', saveState);
+    if (el) { el.addEventListener('input', saveState); el.addEventListener('change', saveState); }
   });
   STATE_CHECKBOXES.forEach(id => {
     const el = document.getElementById(id);
@@ -2287,6 +1658,7 @@ function _hookStateSave() {
   });
 }
 
+// ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   _initAllFontSelects();
   loadState();
@@ -2294,7 +1666,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _hideVKPromptIfReady();
   loadCustomTabs();
   loadVertTemplates();
-  // Sync color-val display on any color input change
+
   document.addEventListener('input', e => {
     if (e.target.type === 'color') {
       const valEl = document.getElementById(e.target.id + '-val');
@@ -2303,24 +1675,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// Close batch preview modal when clicking backdrop
 document.addEventListener('click', function(e) {
   const modal = document.getElementById('batch-preview-modal');
   if (e.target === modal) closeBatchPreview();
 });
 
-// ── HISTORY SYSTEM ────────────────────────────────────────────────────────────
-
-const HIST_KEY      = 'donor_cert_history_v2';
-const HIST_MAX      = 50;
-let   _hist         = [];
+// ── History system ─────────────────────────────────────────────────────────────
+const HIST_KEY = 'donor_cert_history_v2';
+const HIST_MAX = 50;
+let   _hist    = [];
 
 function _histLoad() {
-  try { _hist = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch(e) { _hist = []; }
+  try { _hist = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch (e) { _hist = []; }
 }
-
 function _histSave() {
-  try { localStorage.setItem(HIST_KEY, JSON.stringify(_hist.slice(0, HIST_MAX))); } catch(e) {}
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(_hist.slice(0, HIST_MAX))); } catch (e) {}
 }
 
 function _histTabLabel(tabId) {
@@ -2331,140 +1700,126 @@ function _histTabLabel(tabId) {
   return ct ? '📋 ' + ct.name : tabId;
 }
 
-// Save a single-certificate history entry
 function histSaveSingle(lang, donor, project, settings) {
   const tabId = lang.startsWith('ct-') ? lang.slice(3) : lang;
   _hist.unshift({
-    id:        Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    type:      'single',
+    id:       Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    type:     'single',
     tabId,
-    tabLabel:  _histTabLabel(tabId),
-    ts:        Date.now(),
-    donor,
-    project,
-    settings:  JSON.parse(JSON.stringify(settings || {})),
+    tabLabel: _histTabLabel(tabId),
+    ts:       Date.now(),
+    donor, project,
+    settings: JSON.parse(JSON.stringify(settings || {})),
   });
   _histSave();
 }
 
-// Save a batch history entry (full entries array with per-card settings)
 function histSaveBatch(lang, entries) {
   const tabId = lang.startsWith('ct-') ? lang.slice(3) : lang;
   _hist.unshift({
-    id:        Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    type:      'batch',
+    id:       Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    type:     'batch',
     tabId,
-    tabLabel:  _histTabLabel(tabId),
-    ts:        Date.now(),
-    count:     entries.length,
-    entries:   JSON.parse(JSON.stringify(entries)),
+    tabLabel: _histTabLabel(tabId),
+    ts:       Date.now(),
+    count:    entries.length,
+    entries:  JSON.parse(JSON.stringify(entries)),
     lang,
   });
   _histSave();
 }
 
-// Restore a single entry into the tab's form fields and re-render
 function histRestoreSingle(entry) {
   closeHistoryModal();
   const tabId  = entry.tabId;
-  const lang   = tabId;
   const isOrgs = tabId === 'orgs';
   const isVK   = tabId === 'vacip';
   const isVert = tabId === 'vert';
   const isCT   = !isOrgs && !isVK && !isVert;
 
-  // Switch to the correct tab
   const btn = document.getElementById('tabBtn-' + tabId);
   if (btn) switchTab(tabId, btn);
 
   const prefix = isOrgs ? 'org' : isVK ? 'vk' : isVert ? 'vt' : 'ct-' + tabId + '-';
   const pid    = id => isCT ? 'ct-' + tabId + '-' + id : prefix + '-' + id;
 
-  const setVal = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; } };
-  const setCB  = (id, val) => { const el = document.getElementById(id); if (el) { el.checked = val; } };
+  const setVal  = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  const setCB   = (id, val) => { const el = document.getElementById(id); if (el) el.checked = val; };
   const setDisp = (id, val) => { const el = document.getElementById(id + '-val'); if (el) el.textContent = val; };
 
-  setVal(pid('donor'),      entry.donor);
-  setVal(pid('project'),    entry.project);
+  setVal(pid('donor'),   entry.donor);
+  setVal(pid('project'), entry.project);
 
   const s = entry.settings || {};
-  if (s.donorFont)    setVal(pid('donor-font'),    s.donorFont);
-  if (s.projFont)     setVal(pid('proj-font'),     s.projFont);
-  if (s.donorDir)     setVal(pid('donor-dir'),     s.donorDir);
-  if (s.projDir)      setVal(pid('proj-dir'),      s.projDir);
-  if (s.donorAlign)   setVal(pid('donor-align'),   s.donorAlign);
-  if (s.projAlign)    setVal(pid('proj-align'),    s.projAlign);
-  if (s.donorSize)  { setVal(pid('donor-size'),    s.donorSize);  setDisp(pid('donor-size'),  s.donorSize); }
-  if (s.projSize)   { setVal(pid('proj-size'),     s.projSize);   setDisp(pid('proj-size'),   s.projSize); }
-  if (s.donorY)     { setVal(pid('donor-y'),       s.donorY);     setDisp(pid('donor-y'),     s.donorY); }
-  if (s.projY)      { setVal(pid('proj-y'),        s.projY);      setDisp(pid('proj-y'),      s.projY); }
-  if (s.donorX)     { setVal(pid('donor-x'),       s.donorX);     setDisp(pid('donor-x'),     s.donorX); }
-  if (s.projX)      { setVal(pid('proj-x'),        s.projX);      setDisp(pid('proj-x'),      s.projX); }
-  if (s.donorMaxW)  { setVal(pid('donor-maxw'),    s.donorMaxW);  setDisp(pid('donor-maxw'),  s.donorMaxW); }
-  if (s.projMaxW)   { setVal(pid('proj-maxw'),     s.projMaxW);   setDisp(pid('proj-maxw'),   s.projMaxW); }
-  if (s.donorAuto   !== undefined) setCB(pid('donor-auto'),    s.donorAuto);
-  if (s.projAuto    !== undefined) setCB(pid('proj-auto'),     s.projAuto);
+  if (s.donorFont)  setVal(pid('donor-font'),  s.donorFont);
+  if (s.projFont)   setVal(pid('proj-font'),   s.projFont);
+  if (s.donorDir)   setVal(pid('donor-dir'),   s.donorDir);
+  if (s.projDir)    setVal(pid('proj-dir'),    s.projDir);
+  if (s.donorAlign) setVal(pid('donor-align'), s.donorAlign);
+  if (s.projAlign)  setVal(pid('proj-align'),  s.projAlign);
+  if (s.donorSize) { setVal(pid('donor-size'), s.donorSize);  setDisp(pid('donor-size'),  s.donorSize); }
+  if (s.projSize)  { setVal(pid('proj-size'),  s.projSize);   setDisp(pid('proj-size'),   s.projSize); }
+  if (s.donorY)    { setVal(pid('donor-y'),    s.donorY);     setDisp(pid('donor-y'),     s.donorY); }
+  if (s.projY)     { setVal(pid('proj-y'),     s.projY);      setDisp(pid('proj-y'),      s.projY); }
+  if (s.donorX)    { setVal(pid('donor-x'),    s.donorX);     setDisp(pid('donor-x'),     s.donorX); }
+  if (s.projX)     { setVal(pid('proj-x'),     s.projX);      setDisp(pid('proj-x'),      s.projX); }
+  if (s.donorMaxW) { setVal(pid('donor-maxw'), s.donorMaxW);  setDisp(pid('donor-maxw'),  s.donorMaxW); }
+  if (s.projMaxW)  { setVal(pid('proj-maxw'),  s.projMaxW);   setDisp(pid('proj-maxw'),   s.projMaxW); }
+  if (s.donorAuto    !== undefined) setCB(pid('donor-auto'),    s.donorAuto);
+  if (s.projAuto     !== undefined) setCB(pid('proj-auto'),     s.projAuto);
   if (s.donorEnabled !== undefined) setCB(pid('donor-enabled'), s.donorEnabled);
   if (s.projEnabled  !== undefined) setCB(pid('proj-enabled'),  s.projEnabled);
 
-  // Re-render
   setTimeout(() => {
-    if (isOrgs)  renderOrgs();
-    else if (isVK) renderVacip();
-    else if (isVert) renderVert();
-    else           _ctRender(tabId);
+    if (isOrgs)       renderOrgs();
+    else if (isVK)    renderVacip();
+    else if (isVert)  renderVert();
+    else              _ctRender(tabId);
   }, 80);
 }
 
-// Restore a batch entry — reloads _pendingBatch and opens preview
 function histRestoreBatch(entry) {
   closeHistoryModal();
   const tabId = entry.tabId;
   const btn   = document.getElementById('tabBtn-' + tabId);
   if (btn) switchTab(tabId, btn);
 
-  // Determine img
   let img = null;
-  if (tabId === 'orgs')  img = ORG_IMG;
+  if (tabId === 'orgs')       img = ORG_IMG;
   else if (tabId === 'vacip') img = _getVKImg('') || VK_TR_IMG || VK_AR_IMG || VK_SADAKA_IMG || VK_NAFILE_IMG;
-  else if (tabId === 'vert') img = (_getActiveVertTemplate() || {}).img;
+  else if (tabId === 'vert')  img = (_getActiveVertTemplate() || {}).img;
   else { const ct = CUSTOM_TABS.find(t => t.id === tabId); img = ct ? ct.img : null; }
 
-  if (!img || !img.naturalWidth) {
-    alert('القالب غير محمّل، يرجى رفع القالب أولاً ثم استعادة السجل'); return;
-  }
+  if (!img || !img.naturalWidth) { alert('القالب غير محمّل، يرجى رفع القالب أولاً ثم استعادة السجل'); return; }
 
   const prefix = tabId === 'orgs' ? 'org' : tabId === 'vacip' ? 'vk' : tabId === 'vert' ? 'vt' : 'ct-' + tabId;
   _pendingBatch = { lang: entry.lang || tabId, prefix, entries: JSON.parse(JSON.stringify(entry.entries)), img };
   openBatchPreviewGrid();
 }
 
-// Format timestamp
 function _histFmtTime(ts) {
-  const d = new Date(ts);
-  const pad = n => String(n).padStart(2,'0');
+  const d   = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-// Open history modal
 function openHistoryModal(filterTabId) {
   _histLoad();
   const modal = document.getElementById('history-modal');
   modal.style.display = 'flex';
 
-  const list = document.getElementById('history-list');
+  const list     = document.getElementById('history-list');
   const filtered = filterTabId ? _hist.filter(e => e.tabId === filterTabId) : _hist;
 
-  if (filtered.length === 0) {
+  if (!filtered.length) {
     list.innerHTML = `<div style="text-align:center;color:#556688;padding:40px 20px;font-size:14px;">لا يوجد سجل بعد<br><span style="font-size:11px;">يُحفظ تلقائياً عند التحميل</span></div>`;
+    modal.dataset.filter = filterTabId || '';
     return;
   }
 
   list.innerHTML = filtered.map(e => {
     const icon     = e.type === 'batch' ? '⚡' : '👤';
-    const title    = e.type === 'batch'
-      ? `${e.count} اسم — إنتاج جماعي`
-      : (e.donor || '—');
+    const title    = e.type === 'batch' ? `${e.count} اسم — إنتاج جماعي` : (e.donor || '—');
     const subtitle = e.type === 'single' && e.project ? `<div style="font-size:11px;color:#7a8fa8;margin-top:2px;">${e.project}</div>` : '';
     const tabBadge = filterTabId ? '' : `<span style="font-size:10px;background:rgba(200,164,90,0.15);color:#c8a45a;padding:2px 7px;border-radius:10px;margin-bottom:4px;display:inline-block;">${e.tabLabel}</span><br>`;
     return `
@@ -2482,7 +1837,6 @@ function openHistoryModal(filterTabId) {
     </div>`;
   }).join('');
 
-  // Store current filter
   modal.dataset.filter = filterTabId || '';
 }
 
@@ -2504,7 +1858,6 @@ function closeHistoryModal() {
   document.getElementById('history-modal').style.display = 'none';
 }
 
-// Build history modal HTML (called once on page load)
 function _buildHistoryModal() {
   const div = document.createElement('div');
   div.id = 'history-modal';
@@ -2515,7 +1868,7 @@ function _buildHistoryModal() {
       <div style="font-family:'Amiri',serif;font-size:17px;color:#f0d98a;">🕐 سجل العمليات</div>
       <div style="display:flex;gap:8px;align-items:center;">
         <button onclick="histClearAll()" style="background:rgba(220,60,60,0.15);border:1px solid rgba(220,60,60,0.3);color:#e07070;font-family:'Cairo',sans-serif;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;">مسح الكل</button>
-        <button onclick="closeHistoryModal()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e8e8e8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">✕</button>
+        <button onclick="closeHistoryModal()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#e8e8e8;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;min-height:unset;">✕</button>
       </div>
     </div>
     <div id="history-list" style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;"></div>
@@ -2525,7 +1878,7 @@ function _buildHistoryModal() {
 }
 
 function histClearAll() {
-  const modal = document.getElementById('history-modal');
+  const modal  = document.getElementById('history-modal');
   const filter = modal.dataset.filter;
   if (filter) _hist = _hist.filter(e => e.tabId !== filter);
   else _hist = [];

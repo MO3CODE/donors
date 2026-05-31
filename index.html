@@ -1,22 +1,21 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="version" content="2.1">
+<meta name="version" content="2.2">
 <title>أداة عمل لوحات المتبرعين</title>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@400;600;700&family=Scheherazade+New:wght@400;700&family=Lateef:wght@400;700&family=Rakkas&family=Reem Kufi:wght@400;700&family=Noto+Naskh+Arabic:wght@400;700&family=Alexandria:wght@400;700&family=Righteous&family=Roboto:wght@400;700;900&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Merriweather:wght@400;700&family=Pinyon+Script&family=Great+Vibes&family=Dancing+Script:wght@400;700&family=Pacifico&family=Lobster&family=Cinzel:wght@400;700&family=Cormorant+Garamond:ital,wght@0,400;0,700;1,400&family=IM+Fell+English:ital@0;1&family=Tangerine:wght@400;700&family=Satisfy&family=Alex+Brush&family=Allura&family=Italianno&family=Noto+Kufi+Arabic:wght@400;700&family=Mada:wght@400;700&family=Tajawal:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&family=Changa:wght@400;700&family=Harmattan:wght@400;700&family=Mirza:wght@400;700&family=Aref+Ruqaa&family=Qahiri&family=Markazi+Text:wght@400;700&family=Baloo+2:wght@400;700&display=swap" rel="stylesheet">
-
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div class="header">
-  <div>
-    <h1>🏅 أداة عمل لوحات المتبرعين</h1>
+  <div class="header-brand">
+    <h1>🏅 أداة لوحات المتبرعين</h1>
     <span>Donor Certificate Generator</span>
   </div>
-  <a href="https://www.linkedin.com/in/mo3d/" target="_blank" class="org-badge">برمجة Mohammed Alsalahi</a>
+  <a href="https://www.linkedin.com/in/mo3d/" target="_blank" class="org-badge">MO3CODE</a>
 </div>
 
 <div class="tabs" id="tabs-bar">
@@ -27,7 +26,7 @@
 </div>
 
 <!-- New Tab Modal -->
-<div id="new-tab-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;">
+<div id="new-tab-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
   <div style="background:#1a2a4a;border:1px solid rgba(200,164,90,0.5);border-radius:14px;padding:28px 24px;width:340px;max-width:90vw;">
     <div style="font-family:'Amiri',serif;font-size:17px;color:#f0d98a;margin-bottom:16px;">➕ تبويب جديد</div>
     <label style="font-size:12px;color:#9aaccc;display:block;margin-bottom:6px;">اسم التبويب / الجهة</label>
@@ -60,7 +59,7 @@
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="org-slot-status" id="org-status-stk">—</span>
             <button onclick="event.stopPropagation();document.getElementById('org-upload-stk').click()"
-              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;">رفع</button>
+              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;min-height:unset;">رفع</button>
           </div>
         </div>
 
@@ -73,7 +72,7 @@
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="org-slot-status" id="org-status-ummetin">—</span>
             <button onclick="event.stopPropagation();document.getElementById('org-upload-ummetin').click()"
-              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;">رفع</button>
+              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;min-height:unset;">رفع</button>
           </div>
         </div>
 
@@ -97,7 +96,7 @@
           <div style="display:flex;align-items:center;gap:8px;">
             <span class="org-slot-status" id="org-status-custom">—</span>
             <button onclick="event.stopPropagation();document.getElementById('org-upload-custom').click()"
-              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;">رفع</button>
+              style="background:rgba(200,164,90,0.15);border:1px solid rgba(200,164,90,0.4);color:#c8a45a;font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;white-space:nowrap;min-height:unset;">رفع</button>
           </div>
         </div>
       </div>
@@ -115,105 +114,115 @@
       <div class="hint">يظهر داخل الشريط الأزرق</div>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">🔤 نوع الخط</div>
-        <label style="font-size:12px;color:#9aaccc">خط اسم الجهة</label>
-        <select id="org-donor-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
-        <label style="font-size:12px;color:#9aaccc">اتجاه اسم الجهة</label>
-        <select id="org-donor-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">محاذاة اسم الجهة</label>
-        <select id="org-donor-align" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
-        <select id="org-proj-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
-        <select id="org-proj-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
-        <select id="org-proj-align" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-      </div>
+    <!-- Advanced: Font settings -->
+    <div class="field adv-section">
+      <details>
+        <summary>🔤 إعدادات الخط</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <div class="font-section-title">🔤 نوع الخط</div>
+          <label style="font-size:12px;color:#9aaccc">خط اسم الجهة</label>
+          <select id="org-donor-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+          <label style="font-size:12px;color:#9aaccc">اتجاه اسم الجهة</label>
+          <select id="org-donor-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">محاذاة اسم الجهة</label>
+          <select id="org-donor-align" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+          <select id="org-proj-font" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+          <select id="org-proj-dir" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+          <select id="org-proj-align" onchange="renderOrgs()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+        </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📐 اسم الجهة — الحجم والموضع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="org-donor-size" min="20" max="300" value="64" oninput="document.getElementById('org-donor-size-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-donor-size-val">64</span>
+    <!-- Advanced: Donor size/position -->
+    <div class="field adv-section">
+      <details>
+        <summary>📐 اسم الجهة — الحجم والموضع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="org-donor-size" min="20" max="300" value="64" oninput="document.getElementById('org-donor-size-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-donor-size-val">64</span>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="org-donor-auto" checked onchange="toggleAuto('org','donor')"> حجم تلقائي
+          </label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
+          <div class="font-control">
+            <input type="range" id="org-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-donor-maxw-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-donor-maxw-val">1400</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+          <div class="color-row">
+            <input type="color" id="org-donor-color" value="#1e2f5a" oninput="renderOrgs()">
+            <span class="color-val" id="org-donor-color-val">#1e2f5a</span>
+            <button class="color-reset" onclick="document.getElementById('org-donor-color').value='#1e2f5a';renderOrgs()">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+          <div class="font-control">
+            <input type="range" id="org-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('org-donor-lineh-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-donor-lineh-val">0</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="org-donor-y" min="50" max="1200" value="590" oninput="document.getElementById('org-donor-y-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-donor-y-val">590</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="org-donor-x" min="0" max="1754" value="877" oninput="document.getElementById('org-donor-x-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-donor-x-val">877</span>
+          </div>
         </div>
-        <label class="auto-toggle">
-          <input type="checkbox" id="org-donor-auto" checked onchange="toggleAuto('org','donor')"> حجم تلقائي
-        </label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
-        <div class="font-control">
-          <input type="range" id="org-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-donor-maxw-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-donor-maxw-val">1400</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
-        <div class="color-row">
-          <input type="color" id="org-donor-color" value="#1e2f5a" oninput="renderOrgs()">
-          <span class="color-val" id="org-donor-color-val">#1e2f5a</span>
-          <button class="color-reset" onclick="document.getElementById('org-donor-color').value='#1e2f5a';renderOrgs()">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
-        <div class="font-control">
-          <input type="range" id="org-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('org-donor-lineh-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-donor-lineh-val">0</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="org-donor-y" min="50" max="1200" value="590" oninput="document.getElementById('org-donor-y-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-donor-y-val">590</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="org-donor-x" min="0" max="1754" value="877" oninput="document.getElementById('org-donor-x-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-donor-x-val">877</span>
-        </div>
-      </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📋 اسم المشروع — الحجم والموضع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="org-proj-size" min="20" max="300" value="72" oninput="document.getElementById('org-proj-size-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-proj-size-val">72</span>
+    <!-- Advanced: Project size/position -->
+    <div class="field adv-section">
+      <details>
+        <summary>📋 اسم المشروع — الحجم والموضع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="org-proj-size" min="20" max="300" value="72" oninput="document.getElementById('org-proj-size-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-proj-size-val">72</span>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="org-proj-auto" checked onchange="toggleAuto('org','proj')"> حجم تلقائي
+          </label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
+          <div class="font-control">
+            <input type="range" id="org-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-proj-maxw-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-proj-maxw-val">1400</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+          <div class="color-row">
+            <input type="color" id="org-proj-color" value="#ffffff" oninput="renderOrgs()">
+            <span class="color-val" id="org-proj-color-val">#ffffff</span>
+            <button class="color-reset" onclick="document.getElementById('org-proj-color').value='#ffffff';renderOrgs()">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="org-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('org-proj-y-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-proj-y-val">842</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="org-proj-x" min="0" max="1754" value="877" oninput="document.getElementById('org-proj-x-val').textContent=this.value; renderOrgs()">
+            <span class="size-val" id="org-proj-x-val">877</span>
+          </div>
         </div>
-        <label class="auto-toggle">
-          <input type="checkbox" id="org-proj-auto" checked onchange="toggleAuto('org','proj')"> حجم تلقائي
-        </label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
-        <div class="font-control">
-          <input type="range" id="org-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('org-proj-maxw-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-proj-maxw-val">1400</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
-        <div class="color-row">
-          <input type="color" id="org-proj-color" value="#ffffff" oninput="renderOrgs()">
-          <span class="color-val" id="org-proj-color-val">#ffffff</span>
-          <button class="color-reset" onclick="document.getElementById('org-proj-color').value='#ffffff';renderOrgs()">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="org-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('org-proj-y-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-proj-y-val">842</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="org-proj-x" min="0" max="1754" value="877" oninput="document.getElementById('org-proj-x-val').textContent=this.value; renderOrgs()">
-          <span class="size-val" id="org-proj-x-val">877</span>
-        </div>
-      </div>
+      </details>
     </div>
 
     <button class="btn-generate" onclick="renderOrgs()">🔄 معاينة اللوحة</button>
@@ -294,105 +303,115 @@
       <input type="text" id="vt-project" placeholder="مثال: مشروع إفطار الصائمين" oninput="renderVert()">
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">🔤 نوع الخط</div>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
-        <select id="vt-donor-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
-        <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
-        <select id="vt-donor-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
-        <select id="vt-donor-align" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
-        <select id="vt-proj-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
-        <select id="vt-proj-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
-        <select id="vt-proj-align" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-      </div>
+    <!-- Advanced: Font settings -->
+    <div class="field adv-section">
+      <details>
+        <summary>🔤 إعدادات الخط</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <div class="font-section-title">🔤 نوع الخط</div>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
+          <select id="vt-donor-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+          <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
+          <select id="vt-donor-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
+          <select id="vt-donor-align" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+          <select id="vt-proj-font" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+          <select id="vt-proj-dir" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+          <select id="vt-proj-align" onchange="renderVert()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+        </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📐 اسم المتبرع — الحجم والموضع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="vt-donor-size" min="20" max="300" value="64" oninput="document.getElementById('vt-donor-size-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-donor-size-val">64</span>
+    <!-- Advanced: Donor size/position -->
+    <div class="field adv-section">
+      <details>
+        <summary>📐 اسم المتبرع — الحجم والموضع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="vt-donor-size" min="20" max="300" value="64" oninput="document.getElementById('vt-donor-size-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-donor-size-val">64</span>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="vt-donor-auto" checked onchange="toggleAuto('vt','donor')"> حجم تلقائي
+          </label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
+          <div class="font-control">
+            <input type="range" id="vt-donor-maxw" min="200" max="1200" value="1000" oninput="document.getElementById('vt-donor-maxw-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-donor-maxw-val">1000</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+          <div class="color-row">
+            <input type="color" id="vt-donor-color" value="#1e2f5a" oninput="renderVert()">
+            <span class="color-val" id="vt-donor-color-val">#1e2f5a</span>
+            <button class="color-reset" onclick="document.getElementById('vt-donor-color').value='#1e2f5a';renderVert()">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+          <div class="font-control">
+            <input type="range" id="vt-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('vt-donor-lineh-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-donor-lineh-val">0</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="vt-donor-y" min="50" max="1600" value="800" oninput="document.getElementById('vt-donor-y-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-donor-y-val">800</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="vt-donor-x" min="0" max="1240" value="620" oninput="document.getElementById('vt-donor-x-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-donor-x-val">620</span>
+          </div>
         </div>
-        <label class="auto-toggle">
-          <input type="checkbox" id="vt-donor-auto" checked onchange="toggleAuto('vt','donor')"> حجم تلقائي
-        </label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
-        <div class="font-control">
-          <input type="range" id="vt-donor-maxw" min="200" max="1200" value="1000" oninput="document.getElementById('vt-donor-maxw-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-donor-maxw-val">1000</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
-        <div class="color-row">
-          <input type="color" id="vt-donor-color" value="#1e2f5a" oninput="renderVert()">
-          <span class="color-val" id="vt-donor-color-val">#1e2f5a</span>
-          <button class="color-reset" onclick="document.getElementById('vt-donor-color').value='#1e2f5a';renderVert()">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
-        <div class="font-control">
-          <input type="range" id="vt-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('vt-donor-lineh-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-donor-lineh-val">0</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="vt-donor-y" min="50" max="1600" value="800" oninput="document.getElementById('vt-donor-y-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-donor-y-val">800</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="vt-donor-x" min="0" max="1240" value="620" oninput="document.getElementById('vt-donor-x-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-donor-x-val">620</span>
-        </div>
-      </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📋 اسم المشروع — الحجم والموضع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="vt-proj-size" min="20" max="300" value="60" oninput="document.getElementById('vt-proj-size-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-proj-size-val">60</span>
+    <!-- Advanced: Project size/position -->
+    <div class="field adv-section">
+      <details>
+        <summary>📋 اسم المشروع — الحجم والموضع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="vt-proj-size" min="20" max="300" value="60" oninput="document.getElementById('vt-proj-size-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-proj-size-val">60</span>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="vt-proj-auto" checked onchange="toggleAuto('vt','proj')"> حجم تلقائي
+          </label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
+          <div class="font-control">
+            <input type="range" id="vt-proj-maxw" min="200" max="1200" value="1000" oninput="document.getElementById('vt-proj-maxw-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-proj-maxw-val">1000</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+          <div class="color-row">
+            <input type="color" id="vt-proj-color" value="#ffffff" oninput="renderVert()">
+            <span class="color-val" id="vt-proj-color-val">#ffffff</span>
+            <button class="color-reset" onclick="document.getElementById('vt-proj-color').value='#ffffff';renderVert()">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="vt-proj-y" min="50" max="1600" value="1000" oninput="document.getElementById('vt-proj-y-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-proj-y-val">1000</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="vt-proj-x" min="0" max="1240" value="620" oninput="document.getElementById('vt-proj-x-val').textContent=this.value; renderVert()">
+            <span class="size-val" id="vt-proj-x-val">620</span>
+          </div>
         </div>
-        <label class="auto-toggle">
-          <input type="checkbox" id="vt-proj-auto" checked onchange="toggleAuto('vt','proj')"> حجم تلقائي
-        </label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار</label>
-        <div class="font-control">
-          <input type="range" id="vt-proj-maxw" min="200" max="1200" value="1000" oninput="document.getElementById('vt-proj-maxw-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-proj-maxw-val">1000</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
-        <div class="color-row">
-          <input type="color" id="vt-proj-color" value="#ffffff" oninput="renderVert()">
-          <span class="color-val" id="vt-proj-color-val">#ffffff</span>
-          <button class="color-reset" onclick="document.getElementById('vt-proj-color').value='#ffffff';renderVert()">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="vt-proj-y" min="50" max="1600" value="1000" oninput="document.getElementById('vt-proj-y-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-proj-y-val">1000</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="vt-proj-x" min="0" max="1240" value="620" oninput="document.getElementById('vt-proj-x-val').textContent=this.value; renderVert()">
-          <span class="size-val" id="vt-proj-x-val">620</span>
-        </div>
-      </div>
+      </details>
     </div>
 
     <button class="btn-generate" onclick="renderVert()">🔄 معاينة اللوحة</button>
@@ -454,11 +473,11 @@
     <div class="field">
       <label>القالب</label>
       <div class="vk-template-btns">
-        <button id="vk-tpl-auto"   class="vk-tpl-btn vk-tpl-active" onclick="setVKTemplate('auto')">🔄 تلقائي</button>
-        <button id="vk-tpl-arabic" class="vk-tpl-btn"               onclick="setVKTemplate('arabic')">🇾🇪 عربي</button>
-        <button id="vk-tpl-turkish" class="vk-tpl-btn"              onclick="setVKTemplate('turkish')">🇹🇷 تركي</button>
-        <button id="vk-tpl-sadaka" class="vk-tpl-btn"               onclick="setVKTemplate('sadaka')">🟢 صدقة</button>
-        <button id="vk-tpl-nafile" class="vk-tpl-btn"               onclick="setVKTemplate('nafile')">🔵 نافلة</button>
+        <button id="vk-tpl-auto"    class="vk-tpl-btn vk-tpl-active" onclick="setVKTemplate('auto')">🔄 تلقائي</button>
+        <button id="vk-tpl-arabic"  class="vk-tpl-btn"               onclick="setVKTemplate('arabic')">🇾🇪 عربي</button>
+        <button id="vk-tpl-turkish" class="vk-tpl-btn"               onclick="setVKTemplate('turkish')">🇹🇷 تركي</button>
+        <button id="vk-tpl-sadaka"  class="vk-tpl-btn"               onclick="setVKTemplate('sadaka')">🟢 صدقة</button>
+        <button id="vk-tpl-nafile"  class="vk-tpl-btn"               onclick="setVKTemplate('nafile')">🔵 نافلة</button>
       </div>
     </div>
 
@@ -467,105 +486,115 @@
       <input type="text" id="vk-project" placeholder="اتركه فارغاً إذا كان مدمجاً في القالب" oninput="renderVacip()" style="direction:rtl">
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">🔤 نوع الخط</div>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
-        <select id="vk-donor-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
-        <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
-        <select id="vk-donor-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
-        <select id="vk-donor-align" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
-        <select id="vk-proj-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
-        <select id="vk-proj-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
-        </select>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
-        <select id="vk-proj-align" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
-          <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
-        </select>
-      </div>
+    <!-- Advanced: Font settings -->
+    <div class="field adv-section">
+      <details>
+        <summary>🔤 إعدادات الخط</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <div class="font-section-title">🔤 نوع الخط</div>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المتبرع</label>
+          <select id="vk-donor-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px"></select>
+          <label style="font-size:12px;color:#9aaccc">اتجاه اسم المتبرع</label>
+          <select id="vk-donor-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">محاذاة اسم المتبرع</label>
+          <select id="vk-donor-align" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px;margin-bottom:8px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc">خط اسم المشروع</label>
+          <select id="vk-proj-font" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px"></select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">اتجاه اسم المشروع</label>
+          <select id="vk-proj-dir" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="rtl" selected>يمين إلى يسار</option><option value="ltr">يسار إلى يمين</option><option value="auto">تلقائي حسب النص</option>
+          </select>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px">محاذاة اسم المشروع</label>
+          <select id="vk-proj-align" onchange="renderVacip()" style="width:100%;padding:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(200,164,90,0.3);border-radius:8px;color:#e8e8e8;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="center" selected>وسط</option><option value="right">يمين</option><option value="left">يسار</option>
+          </select>
+        </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📐 حجم وموضع — اسم المتبرع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="vk-donor-size" min="20" max="300" value="90" oninput="document.getElementById('vk-donor-size-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-donor-size-val">90</span>
+    <!-- Advanced: Donor size/position -->
+    <div class="field adv-section">
+      <details>
+        <summary>📐 حجم وموضع — اسم المتبرع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="vk-donor-size" min="20" max="300" value="90" oninput="document.getElementById('vk-donor-size-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-donor-size-val">90</span>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="vk-donor-auto" checked onchange="toggleAuto('vk','donor')"> حجم تلقائي
+          </label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
+          <div class="font-control">
+            <input type="range" id="vk-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-donor-maxw-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-donor-maxw-val">1400</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
+          <div class="color-row">
+            <input type="color" id="vk-donor-color" value="#1e2f5a" oninput="renderVacip()">
+            <span class="color-val" id="vk-donor-color-val">#1e2f5a</span>
+            <button class="color-reset" onclick="document.getElementById('vk-donor-color').value='#1e2f5a';renderVacip()">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
+          <div class="font-control">
+            <input type="range" id="vk-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('vk-donor-lineh-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-donor-lineh-val">0</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="vk-donor-y" min="50" max="1200" value="620" oninput="document.getElementById('vk-donor-y-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-donor-y-val">620</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="vk-donor-x" min="0" max="1754" value="877" oninput="document.getElementById('vk-donor-x-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-donor-x-val">877</span>
+          </div>
         </div>
-        <label class="auto-toggle">
-          <input type="checkbox" id="vk-donor-auto" checked onchange="toggleAuto('vk','donor')"> حجم تلقائي
-        </label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد الاسم)</label>
-        <div class="font-control">
-          <input type="range" id="vk-donor-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-donor-maxw-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-donor-maxw-val">1400</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون الاسم</label>
-        <div class="color-row">
-          <input type="color" id="vk-donor-color" value="#1e2f5a" oninput="renderVacip()">
-          <span class="color-val" id="vk-donor-color-val">#1e2f5a</span>
-          <button class="color-reset" onclick="document.getElementById('vk-donor-color').value='#1e2f5a';renderVacip()">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">تباعد السطور (0=تلقائي)</label>
-        <div class="font-control">
-          <input type="range" id="vk-donor-lineh" min="0" max="200" value="0" oninput="document.getElementById('vk-donor-lineh-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-donor-lineh-val">0</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="vk-donor-y" min="50" max="1200" value="620" oninput="document.getElementById('vk-donor-y-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-donor-y-val">620</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="vk-donor-x" min="0" max="1754" value="877" oninput="document.getElementById('vk-donor-x-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-donor-x-val">877</span>
-        </div>
-      </div>
+      </details>
     </div>
 
-    <div class="field">
-      <div class="font-section">
-        <div class="font-section-title">📋 حجم وموضع — اسم المشروع</div>
-        <label style="font-size:12px;color:#9aaccc">الحجم</label>
-        <div class="font-control">
-          <input type="range" id="vk-proj-size" min="20" max="300" value="72" oninput="document.getElementById('vk-proj-size-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-proj-size-val">72</span>
+    <!-- Advanced: Project size/position -->
+    <div class="field adv-section">
+      <details>
+        <summary>📋 حجم وموضع — اسم المشروع</summary>
+        <div class="font-section" style="border-radius:0 0 10px 10px;margin-top:0;border-top:none;">
+          <label style="font-size:12px;color:#9aaccc">الحجم</label>
+          <div class="font-control">
+            <input type="range" id="vk-proj-size" min="20" max="300" value="72" oninput="document.getElementById('vk-proj-size-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-proj-size-val">72</span>
+          </div>
+          <label class="auto-toggle">
+            <input type="checkbox" id="vk-proj-auto" checked onchange="toggleAuto('vk','proj')"> حجم تلقائي
+          </label>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
+          <div class="font-control">
+            <input type="range" id="vk-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-proj-maxw-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-proj-maxw-val">1400</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
+          <div class="color-row">
+            <input type="color" id="vk-proj-color" value="#ffffff" oninput="renderVacip()">
+            <span class="color-val" id="vk-proj-color-val">#ffffff</span>
+            <button class="color-reset" onclick="document.getElementById('vk-proj-color').value='#ffffff';renderVacip()">↺</button>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
+          <div class="font-control">
+            <input type="range" id="vk-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('vk-proj-y-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-proj-y-val">842</span>
+          </div>
+          <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
+          <div class="font-control">
+            <input type="range" id="vk-proj-x" min="0" max="1754" value="877" oninput="document.getElementById('vk-proj-x-val').textContent=this.value; renderVacip()">
+            <span class="size-val" id="vk-proj-x-val">877</span>
+          </div>
         </div>
-        <label class="auto-toggle">
-          <input type="checkbox" id="vk-proj-auto" checked onchange="toggleAuto('vk','proj')"> حجم تلقائي
-        </label>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">↔ عرض الإطار (حد المشروع)</label>
-        <div class="font-control">
-          <input type="range" id="vk-proj-maxw" min="200" max="1754" value="1400" oninput="document.getElementById('vk-proj-maxw-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-proj-maxw-val">1400</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">🎨 لون المشروع</label>
-        <div class="color-row">
-          <input type="color" id="vk-proj-color" value="#ffffff" oninput="renderVacip()">
-          <span class="color-val" id="vk-proj-color-val">#ffffff</span>
-          <button class="color-reset" onclick="document.getElementById('vk-proj-color').value='#ffffff';renderVacip()">↺</button>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:8px;display:block">الارتفاع (Y)</label>
-        <div class="font-control">
-          <input type="range" id="vk-proj-y" min="50" max="1200" value="842" oninput="document.getElementById('vk-proj-y-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-proj-y-val">842</span>
-        </div>
-        <label style="font-size:12px;color:#9aaccc;margin-top:6px;display:block">المحور الأفقي (X)</label>
-        <div class="font-control">
-          <input type="range" id="vk-proj-x" min="0" max="1754" value="877" oninput="document.getElementById('vk-proj-x-val').textContent=this.value; renderVacip()">
-          <span class="size-val" id="vk-proj-x-val">877</span>
-        </div>
-      </div>
+      </details>
     </div>
 
     <!-- Upload zones -->
@@ -680,20 +709,20 @@
           <div id="batch-edit-title" style="font-family:'Amiri',serif;font-size:15px;color:#f0d98a;"></div>
           <div style="display:flex;gap:6px;">
             <button id="batch-edit-prev" onclick="navigateEdit(-1)" title="السابق"
-              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#e8e8e8;font-size:16px;width:32px;height:32px;border-radius:7px;cursor:pointer;">‹</button>
+              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#e8e8e8;font-size:16px;width:32px;height:32px;border-radius:7px;cursor:pointer;min-height:unset;">‹</button>
             <button id="batch-edit-next" onclick="navigateEdit(1)" title="التالي"
-              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#e8e8e8;font-size:16px;width:32px;height:32px;border-radius:7px;cursor:pointer;">›</button>
+              style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#e8e8e8;font-size:16px;width:32px;height:32px;border-radius:7px;cursor:pointer;min-height:unset;">›</button>
           </div>
         </div>
 
         <div style="padding:14px 16px;display:flex;flex-direction:column;gap:12px;">
 
-          <!-- ── القالب ── -->
+          <!-- Template -->
           <div class="ep-section" style="color:#f0d98a;">🖼 القالب</div>
           <div id="batch-edit-tpl-btns" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
           <div id="batch-edit-tpl-current" style="font-size:11px;color:#8aaad0;margin-top:2px;margin-bottom:4px;"></div>
 
-          <!-- ── النص ── -->
+          <!-- Text -->
           <div class="ep-section">نص الشهادة</div>
 
           <div class="ep-field">
@@ -705,7 +734,7 @@
             <textarea id="batch-edit-project" rows="2" oninput="refreshEditPreview()" class="ep-input" style="resize:vertical;"></textarea>
           </div>
 
-          <!-- ── خط المتبرع ── -->
+          <!-- Donor font -->
           <div class="ep-section">خط اسم المتبرع</div>
 
           <div class="ep-field">
@@ -745,7 +774,6 @@
               <span class="ep-range-val" id="batch-edit-donor-lineh-val">0</span>
             </div>
           </div>
-
           <div class="ep-field">
             <label class="ep-label">الارتفاع (Y)</label>
             <div class="ep-range-row">
@@ -763,7 +791,7 @@
             </div>
           </div>
 
-          <!-- ── خط المشروع ── -->
+          <!-- Project font -->
           <div class="ep-section">خط اسم المشروع</div>
 
           <div class="ep-field">
@@ -812,13 +840,13 @@
             </div>
           </div>
 
-          <!-- ── أزرار ── -->
+          <!-- Action buttons -->
           <button onclick="saveCardEdit()"
-            style="background:linear-gradient(135deg,#c8a45a,#a8843a);border:none;color:#1a2a4a;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;padding:11px;border-radius:8px;cursor:pointer;margin-top:4px;">
+            style="background:linear-gradient(135deg,#c8a45a,#a8843a);border:none;color:#1a2a4a;font-family:'Cairo',sans-serif;font-weight:700;font-size:14px;padding:11px;border-radius:8px;cursor:pointer;margin-top:4px;min-height:44px;">
             ✓ حفظ والعودة للشبكة
           </button>
           <button onclick="backToGrid()"
-            style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:#9aaccc;font-family:'Cairo',sans-serif;font-size:13px;padding:9px;border-radius:8px;cursor:pointer;margin-bottom:16px;">
+            style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);color:#9aaccc;font-family:'Cairo',sans-serif;font-size:13px;padding:9px;border-radius:8px;cursor:pointer;margin-bottom:16px;min-height:44px;">
             رجوع بدون حفظ
           </button>
 
@@ -828,6 +856,10 @@
 
   </div>
 </div>
+
+<!-- Hidden canvases for Arabic and English stubs -->
+<canvas id="canvas-arabic" width="1754" height="1241" style="display:none"></canvas>
+<canvas id="canvas-english" width="1754" height="1241" style="display:none"></canvas>
 
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -880,36 +912,19 @@
 #batch-edit-view { direction: rtl; }
 #batch-edit-prev:disabled, #batch-edit-next:disabled { opacity: 0.3; cursor: not-allowed; }
 
-/* ── Mobile fixes for batch preview modal ── */
-#batch-preview-modal {
-  -webkit-overflow-scrolling: touch;
-}
+/* Mobile fixes for batch preview modal */
+#batch-preview-modal { -webkit-overflow-scrolling: touch; }
 @media (max-width: 700px) {
-  #batch-preview-modal {
-    padding: 8px 4px;
-  }
-  #batch-preview-modal > div {
-    border-radius: 10px;
-  }
+  #batch-preview-modal { padding: 8px 4px; }
+  #batch-preview-modal > div { border-radius: 10px; }
   #batch-preview-grid {
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
     gap: 8px !important;
     padding: 10px !important;
   }
-  #batch-edit-view {
-    flex-direction: column !important;
-    min-height: unset !important;
-  }
-  #batch-edit-view > div:first-child {
-    padding: 8px !important;
-    max-height: 45vw;
-  }
-  #batch-edit-view > div:last-child {
-    width: 100% !important;
-    max-height: 55vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
+  #batch-edit-view { flex-direction: column !important; min-height: unset !important; }
+  #batch-edit-view > div:first-child { padding: 8px !important; max-height: 45vw; }
+  #batch-edit-view > div:last-child { width: 100% !important; max-height: 55vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 }
 
 /* Edit panel helpers */
@@ -990,6 +1005,28 @@
 .toggle-switch input:checked + .toggle-slider::before { transform: translateX(16px); }
 </style>
 
+<!-- Mobile bottom navigation -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bottom-nav-btn active" id="navBtn-orgs" onclick="switchTab('orgs', document.getElementById('tabBtn-orgs')); updateBottomNav('orgs')">
+    <span class="nav-icon">🏢</span>
+    <span>الجهات</span>
+  </button>
+  <button class="bottom-nav-btn" id="navBtn-vacip" onclick="switchTab('vacip', document.getElementById('tabBtn-vacip')); updateBottomNav('vacip')">
+    <span class="nav-icon">🐑</span>
+    <span>الأضاحي</span>
+  </button>
+  <button class="bottom-nav-btn" id="navBtn-vert" onclick="switchTab('vert', document.getElementById('tabBtn-vert')); updateBottomNav('vert')">
+    <span class="nav-icon">📐</span>
+    <span>3:4</span>
+  </button>
+  <button class="bottom-nav-btn" id="navBtn-add" onclick="openNewTabModal()">
+    <span class="nav-icon">＋</span>
+    <span>جديد</span>
+  </button>
+</nav>
+
+<script src="js/domain.js"></script>
+<script src="js/infrastructure.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
